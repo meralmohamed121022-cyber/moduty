@@ -247,21 +247,26 @@ function openFacebook() {
 </div>
 
 <div id="mainApp" class="container">
+    <div id="supervisorDashboard" style="padding:20px;">
+    <h2 style="color:#0f172a; font-weight:900;">👮 Supervisor Hub</h2>
+    <p style="color:#64748b; margin-bottom: 20px;">Search by Pharmacy Number or use your Quick List.</p>
     
-    <div id="supervisorDashboard">
-        <h2 style="color:#0f172a; font-weight:900;">👮 Supervisor Hub</h2>
-        <p style="color:#64748b; margin-bottom: 20px;">Search by Pharmacy Number and Date. System auto-calculates the correct week.</p>
-        
-        <div class="sup-input-group">
-            <input type="number" id="supSearchPNo" placeholder="Pharmacy No (e.g. 66)" style="width:200px; padding:14px; border-radius:12px; border:2px solid #cbd5e1; outline:none; font-weight:bold; font-size:16px;">
-            <input type="date" id="supSearchDate" style="width:200px; padding:14px; border-radius:12px; border:2px solid #cbd5e1; outline:none; font-weight:bold;">
-            <button class="btn btn-primary" onclick="supervisorFetchSchedule()" style="padding:14px 24px; border-radius:12px;">🔍 Fetch Final Schedule</button>
-        </div>
-        
-        <h4 style="margin-top:10px; color:#334155;">Quick Access List:</h4>
-        <div id="monitoredList" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:10px;"></div>
+    <div class="sup-input-group" style="display:flex; gap:10px; margin-bottom:20px;">
+        <input type="number" id="supSearchPNo" placeholder="Pharmacy #" style="width:120px; padding:12px; border-radius:10px; border:2px solid #ddd;">
+        <input type="date" id="supSearchDate" style="padding:12px; border-radius:10px; border:2px solid #ddd;">
+        <button class="btn btn-primary" onclick="supervisorFetchSchedule()">🔍 Fetch</button>
+    </div>
+    
+    <div style="background:#f8fafc; padding:15px; border-radius:16px; border:1px dashed #06b6d4; margin-bottom:20px; display:flex; align-items:center; gap:10px;">
+        <span style="font-weight:800; color:#0891b2; font-size:14px;">➕ Add to Quick List:</span>
+        <input type="number" id="newQuickPhNo" placeholder="Ph #" style="width:80px; padding:8px; border-radius:8px; border:1px solid #ddd;">
+        <button class="btn btn-success" style="padding:8px 15px; font-size:12px;" onclick="addPharmacyToQuickList()">Add to List</button>
     </div>
 
+    <h4 style="color:#475569; font-size:13px; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">⚡ Quick Access List:</h4>
+    <div id="monitoredList" style="display:flex; flex-wrap:wrap; gap:10px;">
+        </div>
+</div>
     <div class="header">
         <div style="display:flex;justify-content:space-between;font-weight:700;margin-bottom:10px;font-size:1.1rem;">
             <div id="displayRoleInfo">PHARMACY: #---</div>
@@ -1313,6 +1318,76 @@ function resetAllData() {
 
 function closeResetModal() {
     document.getElementById('resetConfirmModal').style.display = 'none';
+}
+// 1. إضافة صيدلية جديدة وحفظها في السوبابيز
+async function addPharmacyToQuickList() {
+    const phNo = document.getElementById('newQuickPhNo').value.trim();
+    if (!phNo) return showToast("Enter a number!", "error");
+
+    let currentList = activeSession.info.managed_pharmacies || [];
+    const phInt = parseInt(phNo);
+
+    if (!currentList.includes(phInt)) {
+        currentList.push(phInt);
+        
+        const { error } = await _supabase
+            .from('supervisor_accounts')
+            .update({ managed_pharmacies: currentList })
+            .eq('username', activeSession.id);
+
+        if (!error) {
+            activeSession.info.managed_pharmacies = currentList;
+            localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
+            renderSupervisorPharmacies();
+            document.getElementById('newQuickPhNo').value = '';
+            showToast(`Pharmacy #${phNo} added!`, "success");
+        }
+    } else {
+        showToast("Already in your list", "warning");
+    }
+}
+
+// 2. حذف صيدلية من القائمة وحفظ التعديل
+async function removeFromQuickList(phNo) {
+    let currentList = (activeSession.info.managed_pharmacies || []).filter(id => id !== phNo);
+    
+    const { error } = await _supabase
+        .from('supervisor_accounts')
+        .update({ managed_pharmacies: currentList })
+        .eq('username', activeSession.id);
+
+    if (!error) {
+        activeSession.info.managed_pharmacies = currentList;
+        localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
+        renderSupervisorPharmacies();
+        showToast("Removed from list", "info");
+    }
+}
+
+// 3. رسم الأزرار مع زرار المسح (X) لكل صيدلية
+function renderSupervisorPharmacies() {
+    const list = activeSession.info.managed_pharmacies || [];
+    const container = document.getElementById('monitoredList');
+    
+    if (list.length === 0) {
+        container.innerHTML = `<p style="color:#94a3b8; font-size:12px;">Your list is empty. Add pharmacies above.</p>`;
+        return;
+    }
+
+    container.innerHTML = list.map(id => `
+        <div class="sup-card" style="position:relative; padding-right:35px; border:2px solid #06b6d4; background:white; font-weight:800; border-radius:12px; cursor:pointer;" onclick="quickFetch(${id})">
+            💊 Ph #${id}
+            <span onclick="event.stopPropagation(); removeFromQuickList(${id})" 
+                  style="position:absolute; right:8px; top:50%; transform:translateY(-50%); color:#ef4444; font-size:18px; font-weight:900; padding:0 5px;">
+                  ×
+            </span>
+        </div>
+    `).join('');
+}
+
+function quickFetch(phNo) {
+    document.getElementById('supSearchPNo').value = phNo;
+    supervisorFetchSchedule();
 }
 </script>
 </body>
