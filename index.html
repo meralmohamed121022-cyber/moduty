@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=800, initial-scale=1, user-scalable=yes">
+<title>🏥 Mono DUTY System - PRO</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/html2canvas@latest/dist/html2canvas.min.js"></script>
+
+<style>
+/* ─────────── 1. GENERAL LAYOUT ─────────── */
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
+body{background:linear-gradient(135deg,#06b6d4,#0891b2);min-height:100vh;padding:18px;color:#1e293b;overflow-x:hidden;}
+.container{max-width:1200px;margin:auto;background:rgba(255,255,255,.98);border-radius:24px;box-shadow:0 25px 50px rgba(0,0,0,.15);overflow:hidden; display:none; position: relative; z-index: 10;}
+
+/* ─────────── 2. CSS ART TOASTS ─────────── */
+#toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toast { min-width: 320px; text-align: center; padding: 16px 24px; border-radius: 16px; font-weight: 800; color: white; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: slideUp 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards, fadeOut 0.5s ease-in forwards 3s; display:flex; align-items:center; justify-content:center; gap:10px; }
+.toast-success { background: linear-gradient(135deg, #10b981, #059669); border: 2px solid #047857; }
+.toast-error { background: linear-gradient(135deg, #ef4444, #dc2626); border: 2px solid #b91c1c; }
+.toast-info { background: linear-gradient(135deg, #0ea5e9, #0284c7); border: 2px solid #0369a1; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeOut { to { opacity: 0; transform: translateY(-20px); } }
+
+/* ─────────── 3. AUTH SCREEN ─────────── */
+#authOverlay {position:fixed;inset:0;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0891b2 100%);z-index:90000;display:flex;align-items:center;justify-content:center;}
+.auth-box {background:#fff;border-radius:24px;padding:40px 36px;width:min(460px,92vw);box-shadow:0 30px 70px rgba(0,0,0,0.4);text-align:center;}
+.auth-tabs {display:flex;gap:5px;margin-bottom:25px;background:#f1f5f9;border-radius:14px;padding:5px;}
+.auth-tabs button {flex:1;padding:12px;border:none;border-radius:10px;font-weight:700;cursor:pointer;transition:.3s;background:transparent;color:#64748b;}
+.auth-tabs button.active {background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;box-shadow:0 4px 10px rgba(6,182,212,0.3);}
+.auth-input {width:100%;padding:14px 16px;border:2px solid #e2e8f0;border-radius:12px;font-size:16px;margin-bottom:15px;outline:none;transition:.3s;}
+.auth-input:focus {border-color:#06b6d4; box-shadow:0 0 0 3px rgba(6,182,212,0.1);}
+.btn-login {width:100%;padding:16px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer; transition:.2s;}
+.btn-login:hover {transform:translateY(-2px); box-shadow:0 8px 15px rgba(6,182,212,0.3);}
+
+/* ─────────── 4. HEADER & CONFIG CENTER ─────────── */
+.header{background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;padding:32px 24px; text-align:center;}
+.pharmacy-title{font-size:2.2rem;font-weight:900;color:#1e293b;text-align:center;margin-bottom:15px;}
+.table-title{font-size:1.6rem;font-weight:800;color:#0891b2;text-align:center;margin-bottom:14px}
+
+.controls{padding:25px;background:#f8fafc;}
+.config-box{background:white;border:2px solid #e2e8f0;border-radius:16px;padding:25px;margin-bottom:20px;box-shadow:0 4px 15px rgba(0,0,0,.03);}
+
+.modern-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 25px; }
+.dash-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+.dash-card label { display: block; font-size: 13px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 10px; letter-spacing:0.5px;}
+.dash-input { width: 100%; padding: 12px; font-size: 16px; font-weight: 700; color: #1e293b; text-align: center; border: 2px solid #cbd5e1; border-radius: 10px; background: white; outline: none; transition: .2s; }
+.dash-input:focus { border-color: #06b6d4; }
+.dash-input[readonly] { border-color: transparent; background: #f1f5f9; color: #0891b2; font-size: 20px;}
+
+/* Pharmacists Names Input Style (Matched to Screenshot) */
+.pharmacist-names-grid {display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:15px;}
+.pharmacist-input-wrapper {display:flex; align-items:center; background:#fff; border:2px solid #e2e8f0; border-radius:12px; padding:4px 8px; transition:0.3s; box-shadow:0 2px 5px rgba(0,0,0,0.02);}
+.pharmacist-input-wrapper:focus-within {border-color:#06b6d4; box-shadow:0 4px 10px rgba(6,182,212,0.15);}
+.pharmacist-input-wrapper input {border:none; outline:none; padding:10px; flex:1; font-weight:700; font-size:15px; background:transparent; color:#1e293b;}
+.pharmacist-shift-select { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 14px; font-weight: 700; outline: none; margin-right: 5px; background: #f8fafc; color: #475569; cursor: pointer; transition: 0.2s;}
+.pharmacist-shift-select:focus { border-color: #06b6d4; }
+.btn-red-x {background:none; color:#ef4444; border:none; font-weight:900; font-size:18px; cursor:pointer; padding:0 8px; transition:.2s;}
+.btn-red-x:hover {color:#dc2626; transform:scale(1.1);}
+
+/* Buttons */
+.btn{cursor:pointer;border:none;border-radius:12px;font-weight:800;padding:14px 22px;font-size:14px;text-transform:uppercase;color:white;transition:.25s; display:inline-flex; align-items:center; justify-content:center; gap:8px;}
+.btn:hover{transform:translateY(-2px);opacity:.9;box-shadow:0 5px 15px rgba(0,0,0,0.1);}
+.btn-primary{background:linear-gradient(135deg,#06b6d4,#0891b2);}
+.btn-success{background:linear-gradient(135deg,#10b981,#059669);}
+.btn-warning{background:linear-gradient(135deg,#f59e0b,#d97706);}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);}
+.btn-info{background:linear-gradient(135deg,#6366f1,#4f46e5);}
+.btn-sm{padding:8px 12px;font-size:12px;border-radius:8px;}
+
+/* 💎 Send to Supervisor Distinct Button */
+@keyframes pulseGlow {
+    0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); }
+    70% { box-shadow: 0 0 0 15px rgba(14, 165, 233, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+}
+.btn-send { background:linear-gradient(135deg,#0284c7,#0369a1); font-size: 16px; padding: 18px 40px; border-radius: 16px; animation: pulseGlow 2s infinite; border: 2px solid #38bdf8; font-weight:900; letter-spacing:1px; color:white; cursor:pointer; transition:0.3s;}
+.btn-send:hover { transform:scale(1.02); }
+
+/* ─────────── 5. SHIFTS, GRID ─────────── */
+.shift-item-container {background:white; border-radius:16px; border:1px solid #e2e8f0; padding:20px; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,0.02);}
+.shift-header-row {display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;}
+.shift-name-input {font-size:16px; font-weight:800; border:none; border-bottom:2px dashed #cbd5e1; outline:none; padding:5px; color:#1e293b; width:150px; transition:.3s;}
+.shift-name-input:focus {border-color:#06b6d4;}
+.shift-color-circle {width:35px; height:35px; border-radius:50%; box-shadow:0 4px 8px rgba(0,0,0,.15);}
+.time-select-row {display:flex; gap:10px; align-items:center; font-size:13px; font-weight:700; color:#475569;}
+.time-select {padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; outline:none; font-weight:700; cursor:pointer;}
+
+.vacation-section{background:#f8fafc;border-radius:12px;padding:15px;margin-top:15px; border:1px dashed #cbd5e1;}
+.vacation-chip {background:#ea580c; color:white; padding:6px 12px; border-radius:8px; font-weight:bold; font-size:12px; display:inline-flex; align-items:center; gap:6px; margin-top:10px;}
+
+.manual-grid{display:grid;gap:6px;margin:25px 0;overflow-x:auto; background:white; padding:20px; border-radius:16px; border:1px solid #e2e8f0;}
+.manual-header{background:#1e293b;color:#fff;padding:14px;text-align:center;font-weight:800;border-radius:8px; font-size:14px;}
+.manual-employee{background:#f8fafc;padding:14px;text-align:center;font-weight:800;border-radius:8px;border-left:5px solid #06b6d4; color:#0f172a; display:flex; flex-direction:column; justify-content:center; gap:8px;}
+.manual-cell select{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;outline:none;font-weight:700;cursor:pointer; text-align:center; appearance:none; -webkit-appearance:none; transition:.2s;}
+.manual-cell select:focus{border-color:#06b6d4;}
+
+/* ─────────── 6. FINAL TABLES DISPLAY ─────────── */
+.display-table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,.08);margin-bottom:30px;}
+.display-table th{background:#334155;color:white;padding:16px;text-transform:uppercase;font-size:12px;letter-spacing:1px;}
+.display-table td{padding:14px;border:1px solid #e2e8f0;text-align:center;font-weight:700; font-size:13px;}
+.off-row{background:#f8fafc !important;color:#94a3b8 !important;}
+.vacation-day{background:linear-gradient(135deg,#f97316,#ea580c)!important;color:white !important;text-shadow:1px 1px 2px rgba(0,0,0,0.5);}
+
+/* ─────────── 7. EXTRAS (Supervisor, Particles) ─────────── */
+#supervisorDashboard{display:none;background:white;padding:30px;border-bottom:5px solid #06b6d4;}
+.sup-input-group{display:flex;gap:10px;align-items:center;margin-bottom:20px; flex-wrap:wrap;}
+.sup-card{background:#f8fafc;padding:12px 20px;border-radius:12px;border:2px solid #e2e8f0;color:#0f172a;font-weight:800;cursor:pointer;transition:.2s;}
+.sup-card:hover{background:#06b6d4;color:white;border-color:#06b6d4;}
+
+#particles-bg-canvas{position:fixed;top:0;left:0;width:100%;height:100vh;z-index:-999;}
+.logout-btn{position:fixed;top:20px;right:20px;z-index:9999;padding:10px 20px;background:#ef4444;color:white;border:none;border-radius:10px;font-weight:bold;cursor:pointer;box-shadow:0 4px 10px rgba(239,68,68,0.4);}
+.logout-btn:hover{background:#dc2626;}
+
+/* Auto Save Indicator */
+#autoSaveIndicator { font-size: 13px; font-weight: 700; color: #64748b; margin-top: 10px; text-align: center; height: 20px; transition: 0.3s; }
+</style>
+</head>
+<body>
+<style>
+    #profile-header-bar {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 20px;
+        width: 100%;
+    }
+
+    .header-personal-img {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        border: 4px solid rgba(255, 255, 255, 0.4);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        object-fit: cover;
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        cursor: pointer;
+    }
+
+    .header-personal-img:hover {
+        transform: scale(1.1) rotate(3deg);
+    }
+
+    .social-bar {
+        display: flex;
+        gap: 20px;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 10px 25px;
+        border-radius: 50px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    .s-icon {
+        cursor: pointer;
+        transition: 0.3s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .s-icon:hover {
+        transform: translateY(-5px);
+        filter: drop-shadow(0 5px 8px rgba(0,0,0,0.3));
+    }
+</style>
+
+<div id="profile-header-bar">
+    <img 
+        src="https://raw.githubusercontent.com/meralmohamed121022-cyber/Drug-Monograph/858ba78ce2719a0e7069fd4807b725e0002a17d8/6_20251129_184528_0005.png"
+        id="sys_blob_img"
+        class="header-personal-img"
+        alt="Mo Kholeif"
+    >
+    <div class="social-bar">
+        <div class="s-icon" onclick="openEmail()" title="Email">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="#ff6b6b"/>
+            </svg>
+        </div>
+        <div class="s-icon" onclick="openWhatsApp()" title="WhatsApp">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" fill="#25D366"/>
+            </svg>
+        </div>
+        <div class="s-icon" onclick="openFacebook()" title="Facebook">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#1877F2"/>
+            </svg>
+        </div>
+    </div>
+</div>
+
+<script>
+function openEmail() {
+    window.location.href = "mailto:Muhammedkhulif@yahoo.com";
+}
+function openWhatsApp() {
+    window.open("https://wa.me/966541932559", '_blank');
+}
+function openFacebook() {
+    window.open("https://www.facebook.com/share/1Ghv7eEw6A/", '_blank');
+}
+</script>
+<div id="particles-bg-canvas"></div>
+<button class="logout-btn" onclick="handleLogout()">🚪 Logout</button>
+<div id="toast-container"></div>
+
+<div id="authOverlay">
+    <div class="auth-box">
+        <div style="font-size:3.5rem;margin-bottom:10px;">🏥</div>
+        <h2 id="authTitle" style="color:#0f172a;margin-bottom:5px;font-weight:900;">Mono DUTY System</h2>
+        <p style="color:#64748b;font-size:13px;margin-bottom:20px;">Auto-Register for new credentials</p>
+
+        <div class="auth-tabs">
+            <button id="tabPhar" class="active" onclick="switchAuthRole('pharmacy')">💊 Pharmacy</button>
+            <button id="tabSup" onclick="switchAuthRole('supervisor')">👮 Supervisor</button>
+        </div>
+
+        <div id="pharInputs">
+            <input type="number" id="authPNo" class="auth-input" placeholder="Pharmacy Number (e.g. 66)">
+            <input type="password" id="authPId" class="auth-input" placeholder="Pharmacist ID (Password)">
+        </div>
+        <div id="supInputs" style="display:none;">
+            <input type="text" id="authSupUser" class="auth-input" placeholder="Supervisor Username">
+            <input type="password" id="authSupPass" class="auth-input" placeholder="Password">
+        </div>
+
+        <button class="btn-login" onclick="processCloudLogin()">Secure Connect</button>
+    </div>
+</div>
+
+<div id="historyModal" style="position:fixed;inset:0;background:rgba(15, 23, 42, 0.9);z-index:11000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
+    <div style="background:white;padding:30px;border-radius:24px;width:650px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.5);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:2px solid #f1f5f9;padding-bottom:15px;">
+            <h2 style="color:#0891b2;margin:0;font-weight:900;">📜 Cloud Archives</h2>
+            <button onclick="closeHistory()" style="background:none;border:none;font-size:28px;cursor:pointer;color:#94a3b8;">&times;</button>
+        </div>
+        <div id="historyList" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+</div>
+
+<div id="mainApp" class="container">
+    
+    <div id="supervisorDashboard">
+        <h2 style="color:#0f172a; font-weight:900;">👮 Supervisor Hub</h2>
+        <p style="color:#64748b; margin-bottom: 20px;">Search by Pharmacy Number and Date. System auto-calculates the correct week.</p>
+        
+        <div class="sup-input-group">
+            <input type="number" id="supSearchPNo" placeholder="Pharmacy No (e.g. 66)" style="width:200px; padding:14px; border-radius:12px; border:2px solid #cbd5e1; outline:none; font-weight:bold; font-size:16px;">
+            <input type="date" id="supSearchDate" style="width:200px; padding:14px; border-radius:12px; border:2px solid #cbd5e1; outline:none; font-weight:bold;">
+            <button class="btn btn-primary" onclick="supervisorFetchSchedule()" style="padding:14px 24px; border-radius:12px;">🔍 Fetch Final Schedule</button>
+        </div>
+        
+        <h4 style="margin-top:10px; color:#334155;">Quick Access List:</h4>
+        <div id="monitoredList" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:10px;"></div>
+    </div>
+
+    <div class="header">
+        <div style="display:flex;justify-content:space-between;font-weight:700;margin-bottom:10px;font-size:1.1rem;">
+            <div id="displayRoleInfo">PHARMACY: #---</div>
+        </div>
+        <h1 style="font-size:2.8rem;margin:0;">🏥 Mono DUTY System</h1>
+        <p style="opacity:0.9; font-size: 1.1rem; font-weight:600;">Cloud Synchronized Database</p>
+    </div>
+
+    <div id="pharmacistControls" class="controls">
+        
+        <div style="display:flex; justify-content:center; margin-bottom:20px;">
+            <button class="btn btn-warning" style="font-size:15px; padding:16px 40px; box-shadow:0 6px 15px rgba(245,158,11,0.3);" onclick="openHistory()">📜 View Archives</button>
+        </div>
+
+        <div class="config-box">
+            <h4 style="color:#0f172a; margin-bottom:20px; font-size:1.2rem; display:flex; align-items:center; gap:8px;">⚙️ Configuration Center</h4>
+            
+            <div class="modern-dashboard">
+                <div class="dash-card">
+                    <label>🏪 Pharmacy No.</label>
+                    <input id="pharmacyNo" type="text" class="dash-input" readonly>
+                </div>
+                <div class="dash-card">
+                    <label>👥 Pharmacists Count</label>
+                    <select id="manualPharmacistCount" class="dash-input" onchange="updatePharmacistCount()">
+                        <option value="2">2</option><option value="3">3</option><option value="4" selected>4</option>
+                        <option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                        <option value="8">8</option><option value="9">9</option><option value="10">10</option>
+                    </select>
+                </div>
+                <div class="dash-card">
+                    <label>📅 Week Start Date</label>
+                    <input type="date" id="manualWeekStart" class="dash-input" onchange="triggerAutoSave()">
+                </div>
+            </div>
+
+            <div style="margin-top:30px; background:#f8fafc; padding:20px; border-radius:16px; border:1px solid #e2e8f0;">
+                <h4 style="margin-bottom:15px; color:#0f172a; font-weight:800;">🎨 Shifts Configuration</h4>
+                <p style="font-size:12px; color:#64748b; margin-bottom:15px;">Configure your shifts here. If you set vacation days for a shift, they will be applied automatically.</p>
+                <div id="shiftsList"></div>
+                <div style="display:flex;gap:10px;margin-top:15px;">
+                    <button class="btn btn-success btn-sm" onclick="addCustomShift()">➕ Add Shift</button>
+                    <button class="btn btn-warning btn-sm" onclick="resetToDefaultShifts()">🔄 Reset Defaults</button>
+                </div>
+            </div>
+<div id="resetConfirmModal" style="position:fixed; inset:0; background:rgba(15,23,42,0.85); z-index:12000; display:none; align-items:center; justify-content:center; backdrop-filter:blur(5px);">
+    <div style="background:white; padding:40px 30px; border-radius:28px; width:min(420px, 90vw); text-align:center; box-shadow:0 30px 60px rgba(0,0,0,0.4); border:1px solid rgba(245,158,11,0.2);">
+        <div style="width:80px; height:80px; background:#fef3c7; color:#f59e0b; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:40px; margin:0 auto 20px;">🔄</div>
+        <h3 style="color:#0f172a; font-weight:900; margin-bottom:12px; font-size:22px;">Reset Everything?</h3>
+        <p style="color:#64748b; font-size:15px; margin-bottom:30px; line-height:1.6; font-weight:500;">This will clear all names, shifts, and the grid. You will start from a blank page.</p>
+        <div style="display:flex; gap:12px; justify-content:center;">
+            <button class="btn" style="background:#f1f5f9; color:#475569; padding:14px 28px; border-radius:14px; flex:1; font-weight:800;" onclick="closeResetModal()">Cancel</button>
+            <button id="confirmResetBtn" class="btn" style="padding:14px 28px; border-radius:14px; flex:1; font-weight:800; background:linear-gradient(135deg,#f59e0b,#d97706); color:white;">Yes, Reset</button>
+        </div>
+    </div>
+</div>
+            <div style="margin-top:30px;">
+                <label style="display:block;font-weight:800;color:#475569;font-size:13px;margin-bottom:10px;text-transform:uppercase;">👨‍⚕️ Pharmacists Settings (Name & Default Shift)</label>
+                <div id="pharmacistNamesList" class="pharmacist-names-grid"></div>
+            </div>
+            
+            <div style="display:flex; justify-content:center; margin-top:25px;">
+                <button class="btn btn-success" style="font-size:16px; padding:16px 40px; box-shadow:0 6px 15px rgba(16,185,129,0.3);" onclick="generateManualGrid()">📋 1. Build Grid</button>
+            </div>
+<button class="btn btn-danger" onclick="resetAllData()">🔄 Reset All</button>
+        </div>
+
+        <div id="autoSaveIndicator"></div>
+
+        <div id="manualScheduleGrid" class="manual-grid" style="display: none;"></div>
+
+        <div id="generateScheduleWrapper" style="display:none; justify-content:center; margin-top:20px; margin-bottom:20px;">
+            <button class="btn btn-primary" style="font-size:16px; padding:16px 40px; box-shadow:0 6px 15px rgba(6,182,212,0.3);" onclick="generateTimeBasedScheduleTables()">✨ 2. Generate Final Schedule</button>
+        </div>
+        
+    </div>
+
+    <div id="scheduleDisplay" style="padding:10px 30px 30px;"></div>
+
+    <div id="actionFooter" style="display:none; background:#f8fafc; border-top:2px solid #e2e8f0; padding:40px 20px; text-align:center;">
+        
+        <h3 style="color:#0f172a; margin-bottom: 25px; font-weight:900; font-size:1.5rem;">Final Actions</h3>
+        
+        <button id="sendToSupervisorBtn" class="btn-send" onclick="saveToCloudHistory(false)" style="margin:0 auto 40px; display:inline-flex; align-items:center; gap:10px;">
+            <span style="font-size:24px;">🚀</span> SEND TO SUPERVISOR
+        </button>
+
+        <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom: 30px;">
+            <button class="btn" style="background:#e63946; padding:12px 24px; border-radius:10px;" onclick="exportAsPDF()">📄 Export PDF</button>
+            <button class="btn" style="background:#7209b7; padding:12px 24px; border-radius:10px;" onclick="exportAsImage()">🖼️ Export Image</button>
+            <button class="btn" style="background:#0077b6; padding:12px 24px; border-radius:10px;" onclick="window.print()">🖨️ Print</button>
+            <button class="btn" style="background:#25d366; padding:12px 24px; border-radius:10px;" onclick="shareViaWhatsApp()">💬 WhatsApp</button>
+        </div>
+
+        <div style="border-top:2px dashed #cbd5e1; padding-top:30px; display:flex; gap:15px; justify-content:center; flex-wrap:wrap;">
+            <div style="width:100%; color:#64748b; font-size:13px; font-weight:700; margin-bottom:5px;">Data Management (Advanced Backup)</div>
+            <button class="btn" style="background:#475569; font-size:12px; padding:10px 15px; border-radius:8px;" onclick="exportJSONData()">📥 Backup Data (JSON)</button>
+            <button class="btn" style="background:#64748b; font-size:12px; padding:10px 15px; border-radius:8px;" onclick="document.getElementById('importJsonFile').click()">📤 Restore Data (JSON)</button>
+            <input type="file" id="importJsonFile" style="display:none" accept=".json" onchange="importJSONData(event)">
+        </div>
+
+    </div>
+</div>
+<div id="deleteConfirmModal" style="position:fixed; inset:0; background:rgba(15,23,42,0.8); z-index:12000; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+    <div style="background:white; padding:30px; border-radius:24px; width:400px; text-align:center; box-shadow:0 25px 50px rgba(0,0,0,0.3); border:2px solid #fee2e2;">
+        <div style="font-size:50px; margin-bottom:15px;">⚠️</div>
+        <h3 style="color:#1e293b; font-weight:900; margin-bottom:10px; font-size:20px;">Confirm Deletion</h3>
+        <p style="color:#64748b; font-size:14px; margin-bottom:25px; line-height:1.6;">Are you sure you want to delete this record forever? This action cannot be undone.</p>
+        <div style="display:flex; gap:12px; justify-content:center;">
+            <button class="btn" style="background:#f1f5f9; color:#475569; padding:12px 25px;" onclick="closeDeleteModal()">Cancel</button>
+            <button id="confirmDeleteBtn" class="btn btn-danger" style="padding:12px 25px;">Yes, Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ========================================================================
+   🔥 TOAST NOTIFICATIONS
+======================================================================== */
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    let icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+    toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3500);
+}
+
+/* ========================================================================
+   1️⃣ SUPABASE CONFIG & SESSION
+======================================================================== */
+const SUPABASE_URL = 'https://pxntqknbbeiwmagqypww.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4bnRxa25iYmVpd21hZ3F5cHd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzOTQ3MjMsImV4cCI6MjA4ODk3MDcyM30.juQGQ4hDlRK3Cg5q7kFozENP5S2wsWXQyAZrdgeo6zM';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let activeSession = null;
+let currentAuthRole = 'pharmacy';
+
+window.onload = () => {
+    initParticles();
+    const saved = localStorage.getItem('mono_pro_cloud_v15');
+    if (saved) {
+        activeSession = JSON.parse(saved);
+        launchApp();
+    }
+};
+
+function switchAuthRole(role) {
+    currentAuthRole = role;
+    document.getElementById('tabPhar').className = role === 'pharmacy' ? 'active' : '';
+    document.getElementById('tabSup').className = role === 'supervisor' ? 'active' : '';
+    document.getElementById('pharInputs').style.display = role === 'pharmacy' ? 'block' : 'none';
+    document.getElementById('supInputs').style.display = role === 'supervisor' ? 'block' : 'none';
+    document.getElementById('authTitle').innerText = role === 'pharmacy' ? 'Pharmacy Login' : 'Supervisor Login';
+}
+
+async function processCloudLogin() {
+    const btn = document.querySelector('.btn-login');
+    btn.innerHTML = "⏳ Authenticating...";
+    
+    try {
+        if (currentAuthRole === 'pharmacy') {
+            const pNo = document.getElementById('authPNo').value;
+            const pId = document.getElementById('authPId').value;
+            if (!pNo || !pId) throw new Error("Enter Pharmacy No and ID!");
+
+            let { data, error } = await _supabase.from('pharmacy_accounts').select('*').eq('pharmacy_id', pNo).eq('password', pId).single();
+            if (!data) {
+                const { error: insErr } = await _supabase.from('pharmacy_accounts').insert([{ pharmacy_id: pNo, password: pId }]);
+                if(insErr) throw insErr;
+                data = { pharmacy_id: pNo, supervisor_name: "MONO" };
+            }
+            saveSession({ id: pNo, role: 'pharmacy', supName: data.supervisor_name || 'MONO' });
+        } else {
+            const user = document.getElementById('authSupUser').value;
+            const pass = document.getElementById('authSupPass').value;
+            if (!user || !pass) throw new Error("Enter Username and Password!");
+
+            let { data, error } = await _supabase.from('supervisor_accounts').select('*').eq('username', user).eq('password', pass).single();
+            if (!data) {
+                const { data: newSup, error: insErr } = await _supabase.from('supervisor_accounts').insert([{ username: user, password: pass, managed_pharmacies: [] }]).select().single();
+                if(insErr) throw insErr;
+                data = newSup;
+            }
+            saveSession({ id: user, role: 'supervisor', info: data });
+        }
+    } catch (e) {
+        showToast("❌ " + e.message, "error");
+        btn.innerHTML = "Secure Connect";
+    }
+}
+
+function saveSession(data) {
+    localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(data));
+    location.reload();
+}
+
+function handleLogout() {
+    localStorage.removeItem('mono_pro_cloud_v15');
+    location.reload();
+}
+
+function launchApp() {
+    document.getElementById('authOverlay').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+
+    if (activeSession.role === 'supervisor') {
+        document.getElementById('displayRoleInfo').innerText = `SUPERVISOR: ${activeSession.id.toUpperCase()}`;
+        document.getElementById('pharmacistControls').style.display = 'none'; 
+        document.getElementById('supervisorDashboard').style.display = 'block';
+        document.getElementById('sendToSupervisorBtn').style.display = 'none'; // Hide Send button for Supervisors
+        renderSupervisorPharmacies();
+    } else {
+        document.getElementById('displayRoleInfo').innerText = `PHARMACY: #${activeSession.id}`;
+        document.getElementById('pharmacyNo').value = activeSession.id;
+        pharmacyNumber = activeSession.id;
+        
+        document.getElementById('manualPharmacistCount').value = "4";
+        updatePharmacistCount();
+        renderShifts();
+    }
+}
+
+/* ========================================================================
+   2️⃣ SUPERVISOR LOGIC & DATE HELPERS
+======================================================================== */
+function getSaturdayOfWeek(dateString) {
+    if (!dateString) return null;
+    let d = new Date(dateString);
+    let day = d.getDay(); 
+    let diff = (day + 1) % 7; 
+    d.setDate(d.getDate() - diff);
+    return d.toISOString().split('T')[0];
+}
+
+function getWeekOfMonthEn(dateString) {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    const month = d.toLocaleString('en-US', { month: 'long' });
+    const year = d.getFullYear();
+    const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
+    const pastDaysOfMonth = (d.getDate() - 1) + firstDay.getDay();
+    const weekNum = Math.ceil(pastDaysOfMonth / 7);
+    return `Week ${weekNum} of ${month} ${year}`;
+}
+
+async function supervisorFetchSchedule() {
+    const pNo = document.getElementById('supSearchPNo').value;
+    const rawDate = document.getElementById('supSearchDate').value;
+    if (!pNo) return showToast("Please enter a Pharmacy Number!", "error");
+
+    document.getElementById('scheduleDisplay').innerHTML = "<h3 style='text-align:center; color:#0891b2; margin:40px 0;'>⏳ Fetching Live Schedule from Cloud...</h3>";
+    document.getElementById('actionFooter').style.display = 'none';
+    
+    let query = _supabase.from('pharmacy_schedules').select('*').eq('pharmacy_id', pNo).order('created_at', { ascending: false });
+    
+    if (rawDate) {
+        const satDate = getSaturdayOfWeek(rawDate);
+        query = query.eq('week_start_date', satDate);
+    }
+    
+    const { data, error } = await query.limit(1).single();
+
+    if (data && data.data) {
+        restoreEnvironmentQuietly(data.data, pNo, data.week_start_date);
+        setTimeout(() => { generateTimeBasedScheduleTables(true, activeSession.id); showToast("Schedule Loaded!", "success"); }, 300);
+    } else {
+        const dateMsg = rawDate ? ` for ${getWeekOfMonthEn(getSaturdayOfWeek(rawDate))}` : ``;
+        document.getElementById('scheduleDisplay').innerHTML = `<div style="text-align:center; padding:40px; background:#fee2e2; border-radius:15px; color:#b91c1c;"><h3>❌ No schedule found for Pharmacy #${pNo}${dateMsg}</h3></div>`;
+    }
+}
+
+async function addPharmacyToMonitor() {
+    const target = document.getElementById('addMonitorPNo').value;
+    if (!target) return;
+
+    let list = activeSession.info.managed_pharmacies || [];
+    if (!list.includes(parseInt(target))) {
+        list.push(parseInt(target));
+        
+        // Auto assign this supervisor to the pharmacy record
+        await _supabase.from('pharmacy_accounts').update({ supervisor_name: activeSession.id }).eq('pharmacy_id', target);
+        await _supabase.from('supervisor_accounts').update({ managed_pharmacies: list }).eq('username', activeSession.id);
+        
+        activeSession.info.managed_pharmacies = list;
+        localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
+        renderSupervisorPharmacies();
+        showToast("Added to list!", "success");
+    }
+    document.getElementById('addMonitorPNo').value = '';
+}
+
+function renderSupervisorPharmacies() {
+    const list = activeSession.info.managed_pharmacies || [];
+    document.getElementById('monitoredList').innerHTML = list.map(id => `
+        <div class="sup-card" onclick="document.getElementById('supSearchPNo').value='${id}'; supervisorFetchSchedule();">
+            💊 Ph #${id}
+        </div>
+    `).join('');
+}
+
+
+/* ========================================================================
+   3️⃣ CORE LOGIC (PHARMACISTS, SHIFTS, VACATIONS)
+======================================================================== */
+let pharmacists = [{name: '', defaultShift: ''}, {name: '', defaultShift: ''}, {name: '', defaultShift: ''}, {name: '', defaultShift: ''}];
+let shifts = [
+    {id:1, name:'Morning', startHour: 8, startPeriod: 'AM', endHour: 4, endPeriod: 'PM', color:'#4fc3f7'},
+    {id:2, name:'Afternoon', startHour: 4, startPeriod: 'PM', endHour: 11, endPeriod: 'PM', color:'#66bb6a'},
+    {id:3, name:'Night', startHour: 11, startPeriod: 'PM', endHour: 8, endPeriod: 'AM', color:'#7e57c2'}
+];
+const days = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday'];
+let simpleShiftVacations = {};
+let pharmacyNumber = '';
+
+// ☁️ AUTO SAVE DEBOUNCER
+let autoSaveTimer = null;
+function triggerAutoSave() {
+    if(activeSession.role === 'supervisor') return;
+    const ind = document.getElementById('autoSaveIndicator');
+    if(ind) { ind.innerText = "⏳ Saving changes..."; ind.style.color = "#f59e0b"; }
+
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => { saveToCloudHistory(true); }, 3000);
+}
+
+function updatePharmacyNumber() { pharmacyNumber = document.getElementById('pharmacyNo').value.trim(); triggerAutoSave(); }
+
+function updatePharmacistCount() {
+    let count = parseInt(document.getElementById('manualPharmacistCount').value);
+    while (pharmacists.length < count) pharmacists.push({name: '', defaultShift: ''});
+    if (pharmacists.length > count) pharmacists = pharmacists.slice(0, count);
+    renderPharmacists();
+    triggerAutoSave();
+}
+
+function removePharmacist(index) {
+    if (pharmacists.length <= 2) return showToast("Minimum 2 pharmacists required!", "error");
+    pharmacists.splice(index, 1);
+    document.getElementById('manualPharmacistCount').value = pharmacists.length;
+    updatePharmacistCount();
+}
+
+function getShiftShortName(shift) {
+    if(!shift) return 'OFF';
+    return `${shift.startHour} ${shift.startPeriod}`;
+}
+
+// 🟢 Pharmacists Render (Name + Default Shift Dropdown ONLY)
+function renderPharmacists() {
+    const list = document.getElementById('pharmacistNamesList');
+    
+    list.innerHTML = pharmacists.map((p, i) => {
+        let shiftOptions = `<option value="OFF" ${p.defaultShift==='OFF'?'selected':''}>OFF</option>`;
+        shifts.forEach(s => {
+            let sel = p.defaultShift == s.id ? 'selected' : '';
+            shiftOptions += `<option value="${s.id}" ${sel}>${getShiftShortName(s)}</option>`;
+        });
+
+        return `
+        <div class="pharmacist-input-wrapper">
+            <input type="text" placeholder="Pharmacist ${i+1}" value="${p.name}" onchange="pharmacists[${i}].name=this.value; triggerAutoSave();">
+            <select class="pharmacist-shift-select" onchange="pharmacists[${i}].defaultShift=this.value; triggerAutoSave();">
+                <option value="">Set Shift</option>
+                ${shiftOptions}
+            </select>
+            
+        </div>`;
+    }).join('');
+}
+
+function getShiftColor(h, p) {
+    let h24 = p === 'AM' ? (h===12?0:h) : (h===12?12:h+12);
+    if(h24 >= 5 && h24 <= 11) return '#4fc3f7';
+    if(h24 >= 12 && h24 <= 17) return '#66bb6a';
+    return '#7e57c2';
+}
+
+function renderShifts() {
+    const wrap = document.getElementById('shiftsList');
+    wrap.innerHTML = shifts.map((s, i) => {
+        const vac = simpleShiftVacations[s.id] || { enabled: false, list: [] };
+        
+        let vacHtml = `
+        <div class="vacation-section">
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <select id="vacDay-${s.id}" style="padding:8px; border-radius:6px; border:1px solid #ccc; outline:none; max-width:150px;"><option value="">Select Day off</option>${days.map(d=>`<option value="${d}">${d}</option>`).join('')}</select>
+                <button class="btn btn-info btn-sm" onclick="addVacation(${s.id})">🌟 Apply to all weeks</button>
+            </div>
+            <div style="font-size:12px; display:flex; flex-wrap:wrap; gap:5px; margin-top:10px;">
+                ${vac.list.map((v, vidx) => `<span class="vacation-chip">${v.day} <span style="cursor:pointer; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:50%; margin-left:5px;" onclick="removeVacation(${s.id}, ${vidx})">✖</span></span>`).join('')}
+            </div>
+        </div>`;
+
+        return `
+        <div class="shift-item-container">
+            <div class="shift-header-row">
+                <input class="shift-name-input" value="${s.name}" onchange="shifts[${i}].name=this.value; renderPharmacists(); triggerAutoSave();">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div class="shift-color-circle" style="background:${s.color};"></div>
+                    <button class="btn btn-danger btn-sm" style="padding:8px;" onclick="shifts.splice(${i},1); renderShifts(); renderPharmacists(); triggerAutoSave();">✖</button>
+                </div>
+            </div>
+            <div class="time-select-row">
+                Start: <select class="time-select" onchange="updateTime(${i}, 'start', this.value, null)">${genOpts(s.startHour)}</select>
+                <select class="time-select" onchange="updateTime(${i}, 'start', null, this.value)"><option ${s.startPeriod=='AM'?'selected':''}>AM</option><option ${s.startPeriod=='PM'?'selected':''}>PM</option></select>
+                <span style="color:#06b6d4; font-weight:900;">→</span> 
+                End: <select class="time-select" onchange="updateTime(${i}, 'end', this.value, null)">${genOpts(s.endHour)}</select>
+                <select class="time-select" onchange="updateTime(${i}, 'end', null, this.value)"><option ${s.endPeriod=='AM'?'selected':''}>AM</option><option ${s.endPeriod=='PM'?'selected':''}>PM</option></select>
+            </div>
+            ${vacHtml}
+        </div>`;
+    }).join('');
+}
+
+function genOpts(sel) { let o=''; for(let i=1;i<=12;i++) o+=`<option value="${i}" ${i==sel?'selected':''}>${i}</option>`; return o; }
+function updateTime(i, t, h, p) {
+    if(t==='start') { if(h) shifts[i].startHour=parseInt(h); if(p) shifts[i].startPeriod=p; shifts[i].color = getShiftColor(shifts[i].startHour, shifts[i].startPeriod); }
+    else { if(h) shifts[i].endHour=parseInt(h); if(p) shifts[i].endPeriod=p; }
+    renderShifts(); renderPharmacists(); triggerAutoSave();
+}
+function addCustomShift() { shifts.push({id:Date.now(), name:'New Shift', startHour:9, startPeriod:'AM', endHour:5, endPeriod:'PM', color:'#4fc3f7'}); renderShifts(); renderPharmacists(); triggerAutoSave(); }
+function resetToDefaultShifts() {
+    shifts = [
+        {id:1, name:'Morning', startHour: 8, startPeriod: 'AM', endHour: 4, endPeriod: 'PM', color:'#4fc3f7'},
+        {id:2, name:'Afternoon', startHour: 4, startPeriod: 'PM', endHour: 11, endPeriod: 'PM', color:'#66bb6a'},
+        {id:3, name:'Night', startHour: 11, startPeriod: 'PM', endHour: 8, endPeriod: 'AM', color:'#7e57c2'}
+    ]; renderShifts(); renderPharmacists(); triggerAutoSave();
+}
+
+function addVacation(sId) {
+    const d = document.getElementById(`vacDay-${sId}`).value;
+    if(!d) return showToast("Select a day first", "error");
+    if(!simpleShiftVacations[sId]) simpleShiftVacations[sId] = {enabled:true, list:[]};
+    
+    if(!simpleShiftVacations[sId].list.some(x => x.day===d)) simpleShiftVacations[sId].list.push({day:d});
+    showToast(`Added vacation for all weeks!`, "success");
+    renderShifts();
+    triggerAutoSave();
+}
+function removeVacation(sId, idx) { simpleShiftVacations[sId].list.splice(idx,1); renderShifts(); triggerAutoSave(); }
+
+
+/* ========================================================================
+   4️⃣ GRID CREATION & QUICK APPLY TO ALL DAYS
+======================================================================== */
+function generateManualGrid() {
+    if(pharmacists.some(p => !p.name.trim())) return showToast("🛑 Please enter all pharmacist names!", "error");
+    
+    const grid = document.getElementById('manualScheduleGrid');
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = `150px repeat(7, 1fr)`;
+    let html = `<div class="manual-header">Pharmacist</div>` + days.map(d => `<div class="manual-header">${d}</div>`).join('');
+    
+    pharmacists.forEach((p, pi) => {
+        let defaultVal = p.defaultShift || 'OFF';
+
+        html += `<div class="manual-employee">
+                    <div style="margin-bottom:5px;">${p.name}</div>
+                    <button onclick="applyShiftToAllDays(${pi})" style="font-size:10px; padding:6px 8px; background:#0891b2; color:white; border:none; border-radius:4px; cursor:pointer; width:100%; transition:.2s;" onmouseover="this.style.background='#06b6d4'" onmouseout="this.style.background='#0891b2'">⏩ Copy Sat to All</button>
+                 </div>`;
+                 
+        days.forEach((d, di) => {
+            html += `<div class="manual-cell"><select id="cell-${pi}-${di}" onchange="handleCellChange(this, '${d}')">
+                <option value="OFF" ${defaultVal=='OFF'?'selected':''}>OFF</option>
+                ${shifts.map(s => `<option value="${s.id}" ${defaultVal==s.id?'selected':''}>${getShiftShortName(s)}</option>`).join('')}
+                <option value="VACATION">🏖️ VACATION</option>
+            </select></div>`;
+        });
+    });
+    grid.innerHTML = html;
+    
+    // Auto-apply vacations on build
+    pharmacists.forEach((p, pi) => {
+        days.forEach((d, di) => {
+            const cell = document.getElementById(`cell-${pi}-${di}`);
+            if (cell) handleCellChange(cell, d, true); // silent apply
+        });
+    });
+
+    document.getElementById('actionFooter').style.display = 'none';
+    document.getElementById('scheduleDisplay').innerHTML = ''; 
+    document.getElementById('generateScheduleWrapper').style.display = 'flex'; // Show generate button
+    showToast("📋 Grid built successfully. Shifts pre-filled.", "success");
+    triggerAutoSave();
+}
+
+// ⏩ نسخ يوم السبت لباقي الأسبوع للصيدلي مع تطبيق الإجازة أوتوماتيكياً
+function applyShiftToAllDays(pIndex) {
+    const baseVal = document.getElementById(`cell-${pIndex}-0`).value; 
+    for(let i=1; i<7; i++) {
+        const cell = document.getElementById(`cell-${pIndex}-${i}`);
+        if(cell) {
+            cell.value = baseVal;
+            handleCellChange(cell, days[i], true);
+        }
+    }
+    showToast(`✅ Shift copied across week for ${pharmacists[pIndex].name}`, 'info');
+    triggerAutoSave();
+}
+
+// 🔴 AUTO-APPLY VACATION LOGIC (Applies vacation if day matches shift config)
+function handleCellChange(selectEl, dayName, silent = false) {
+    const val = selectEl.value;
+    if (val !== 'VACATION' && val !== 'OFF' && val !== '') {
+        const vacData = simpleShiftVacations[val];
+        if (vacData && vacData.enabled) {
+            const isVacDay = vacData.list.some(v => v.day === dayName);
+            if (isVacDay) {
+                if(!silent) showToast(`🏖️ Auto-applied vacation for ${dayName}`, 'info');
+                selectEl.value = 'VACATION';
+            }
+        }
+    }
+    styleCell(selectEl);
+    if(!silent) triggerAutoSave();
+}
+
+function styleCell(el) {
+    const v = el.value;
+    if (v === 'VACATION') { el.style.background = '#ea580c'; el.style.color = '#fff'; }
+    else if (v && v !== 'OFF') { const sh = shifts.find(s=>s.id==v); el.style.background = sh?sh.color:'white'; el.style.color = sh?'#fff':'black'; }
+    else { el.style.background = 'white'; el.style.color = 'black'; }
+}
+
+function captureFullEnvironment() {
+    updatePharmacyNumber();
+    if (!document.getElementById('manualScheduleGrid').innerHTML) return null;
+
+    const cells = {};
+    document.querySelectorAll('#manualScheduleGrid select').forEach(s => cells[s.id] = s.value);
+
+    return {
+        pharmacists: pharmacists,
+        shifts: shifts,
+        simpleShiftVacations: simpleShiftVacations,
+        cells: cells
+    };
+}
+
+function restoreEnvironmentQuietly(data, pNo, wDate) {
+    pharmacists = data.pharmacists || [];
+    shifts = data.shifts || [];
+    
+    const grid = document.getElementById('manualScheduleGrid');
+    grid.innerHTML = ''; 
+    pharmacists.forEach((p, pi) => {
+        days.forEach((d, di) => {
+            const val = data.cells ? data.cells[`cell-${pi}-${di}`] : '';
+            grid.innerHTML += `<input type="hidden" id="cell-${pi}-${di}" value="${val}">`;
+        });
+    });
+    
+    document.getElementById('pharmacyNo').value = pNo;
+    pharmacyNumber = pNo;
+    document.getElementById('manualWeekStart').value = wDate;
+}
+
+function restoreFullEnvironment(data) {
+    pharmacists = data.pharmacists || pharmacists;
+    shifts = data.shifts || shifts;
+    simpleShiftVacations = data.simpleShiftVacations || {};
+    
+    document.getElementById('manualPharmacistCount').value = pharmacists.length;
+    updatePharmacistCount(); 
+    renderShifts();
+    
+    // Rebuild grid
+    const grid = document.getElementById('manualScheduleGrid');
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = `180px repeat(7, 1fr)`;
+    let html = `<div class="manual-header">Pharmacist</div>` + days.map(d => `<div class="manual-header">${d}</div>`).join('');
+    
+    pharmacists.forEach((p, pi) => {
+        html += `<div class="manual-employee">
+                    <div style="margin-bottom:5px;">${p.name}</div>
+                    <button onclick="applyShiftToAllDays(${pi})" style="font-size:10px; padding:6px 8px; background:#0891b2; color:white; border:none; border-radius:4px; cursor:pointer; width:100%;">⏩ Copy Sat to All</button>
+                 </div>`;
+        days.forEach((d, di) => {
+            const savedVal = data.cells ? data.cells[`cell-${pi}-${di}`] : 'OFF';
+            html += `<div class="manual-cell"><select id="cell-${pi}-${di}" onchange="styleCell(this); triggerAutoSave();">
+                <option value="OFF" ${savedVal=='OFF'?'selected':''}>OFF</option>
+                ${shifts.map(s => `<option value="${s.id}" ${savedVal==s.id?'selected':''}>${getShiftShortName(s)}</option>`).join('')}
+                <option value="VACATION" ${savedVal=='VACATION'?'selected':''}>🏖️ VACATION</option>
+            </select></div>`;
+        });
+    });
+    grid.innerHTML = html;
+    document.querySelectorAll('#manualScheduleGrid select').forEach(sel => styleCell(sel));
+    document.getElementById('generateScheduleWrapper').style.display = 'flex';
+}
+
+
+/* ========================================================================
+   5️⃣ FINAL TABLE RENDERER (Time-Based Sorting)
+======================================================================== */
+function generateTimeBasedScheduleTables(isSupervisor = false, supName = "") {
+    const grid = document.getElementById('manualScheduleGrid');
+    if(!grid.innerHTML) return showToast('🛑 Build grid first!', 'error');
+    
+    const display = document.getElementById('scheduleDisplay');
+    const pNo = pharmacyNumber || activeSession.id;
+    const rawDate = document.getElementById('manualWeekStart').value;
+    const formattedDateEn = getWeekOfMonthEn(rawDate);
+    
+    display.innerHTML = '';
+    
+    const groups = [
+        {title:'Saturday', range:[0]},
+        {title:'Sunday–Wednesday', range:[1,2,3,4]},
+        {title:'Thursday', range:[5]},
+        {title:'Friday', range:[6]}
+    ];
+
+    groups.forEach((g, idx) => {
+        const headers = g.range.map(i => `<th>${days[i].toUpperCase()}</th>`).join('');
+        
+        let pharsWithShifts = pharmacists.map((p, pi) => {
+            const el = document.getElementById(`cell-${pi}-${g.range[0]}`);
+            const val = el ? el.value : '';
+            let sh = shifts.find(s => s.id == val);
+            let timeVal = 9999;
+            if(sh) {
+                let h = sh.startHour;
+                if(sh.startPeriod === 'PM' && h !== 12) h += 12;
+                if(sh.startPeriod === 'AM' && h === 12) h = 0;
+                timeVal = h * 60;
+            }
+            return { name: p.name, origIdx: pi, shift: sh, val: val, time: timeVal, isVac: val==='VACATION' };
+        });
+
+        pharsWithShifts.sort((a,b) => {
+            if(a.isVac && !b.isVac) return 1;
+            if(!a.isVac && b.isVac) return -1;
+            if(a.time !== b.time) return a.time - b.time;
+            return a.name.localeCompare(b.name);
+        });
+
+        const rows = pharsWithShifts.map(p => {
+            const cells = g.range.map(di => {
+                const val = document.getElementById(`cell-${p.origIdx}-${di}`)?.value;
+                if (val === 'VACATION') return `<td class="vacation-day">🏖️ VACATION</td>`;
+                const sh = shifts.find(s => s.id == val);
+                return sh ? `<td style="background:${sh.color};color:white;">${sh.startHour}:00 ${sh.startPeriod} - ${sh.endHour}:00 ${sh.endPeriod}</td>` 
+                          : `<td class="off-row">OFF</td>`;
+            }).join('');
+            
+            let info = `<strong style="font-size:14px; color:#1e293b;">${p.name}</strong>`;
+            if (p.shift) info += `<span style="display:block;font-size:11px;color:#64748b;">(${p.shift.startHour}:00 ${p.shift.startPeriod})</span>`;
+            else if (p.isVac) info += `<span style="display:block;font-size:11px;color:#ea580c;">(VACATION)</span>`;
+            else info += `<span style="display:block;font-size:11px;color:#64748b;">(OFF)</span>`;
+            
+            return `<tr><td style="background:#f8fafc;">${info}</td>${cells}</tr>`;
+        }).join('');
+
+        const dateStr = g.title === 'Saturday' && rawDate ? ` — ${rawDate}` : '';
+        const weekSubStr = idx === 0 && rawDate ? `<div style="font-size:14px; color:#64748b; font-weight:600;">${formattedDateEn}</div>` : '';
+        
+        let supervisorName = activeSession.supName || "MONO";
+        if (isSupervisor) supervisorName = supName;
+
+        display.innerHTML += `
+            <div style="margin-bottom:40px; page-break-inside:avoid;">
+                ${idx === 0 ? `<div class="pharmacy-title">Pharmacy #${pNo}</div>${weekSubStr}` : ''}
+                <div class="table-title" style="color:#7e57c2; margin-top:10px;">${g.title}${dateStr}</div>
+                <table class="display-table">
+                    <thead><tr><th>PHARMACIST (SHIFT - START TIME)</th>${headers}</tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                ${idx === 0 ? `
+                <div style="text-align:center; background:linear-gradient(90deg, #1e293b, #334155); padding:10px; border-radius:10px; margin-top:10px; color:white;">
+                    <div style="font-size:1.8rem; font-weight:900; background:linear-gradient(135deg,#06b6d4,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:2px;">MONO</div>
+                    <div style="font-size:12px; margin-top:5px; font-weight:700; color:#94a3b8;">Ph: Mohamed Kholeif ⚡️ SUPERVISOR: DR. ${supervisorName.toUpperCase()}</div>
+                </div>` : ''}
+            </div>
+        `;
+    });
+    
+    document.getElementById('manualScheduleGrid').style.display = 'none';
+    document.getElementById('generateScheduleWrapper').style.display = 'none';
+    document.getElementById('actionFooter').style.display = 'block';
+    showToast("✨ Final Schedule Generated successfully!", "success");
+    triggerAutoSave();
+}
+async function saveToCloudHistory(isSilent = false) {
+    if (activeSession.role === 'supervisor') return;
+    
+    const gridData = captureFullEnvironment();
+    if (!gridData) return;
+
+    const weekDate = document.getElementById('manualWeekStart').value;
+    if (!weekDate && !isSilent) return showToast("🛑 Please select Week Start Date before sending!", "error");
+    if (!weekDate) return;
+
+    // 1. فحص هل يوجد سجل قديم لنفس التاريخ وهل هو "مفضل"؟
+    const { data: existing } = await _supabase.from('pharmacy_schedules')
+        .select('id, data')
+        .eq('pharmacy_id', activeSession.id)
+        .eq('week_start_date', weekDate)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+    if (existing) {
+        // 🛡️ الحصانة: لو الجدول القديم فيه نجمة، انقل النجمة للداتا الجديدة
+        if (existing.data && existing.data.is_pinned === true) {
+            gridData.is_pinned = true;
+        }
+        
+        // تحديث السجل الحالي بالبيانات الجديدة (مع الحفاظ على حالة النجمة)
+        await _supabase.from('pharmacy_schedules')
+            .update({ data: gridData, created_at: new Date() })
+            .eq('id', existing.id);
+    } else {
+        // لو سجل جديد تماماً، بينزل طبيعي
+        await _supabase.from('pharmacy_schedules')
+            .insert([{ pharmacy_id: activeSession.id, week_start_date: weekDate, data: gridData }]);
+    }
+
+    if (!isSilent) {
+        showToast("📤✅ Sent to Supervisor & Cloud successfully!", "success");
+    } else {
+        const ind = document.getElementById('autoSaveIndicator');
+        if(ind) { 
+            ind.innerText = "☁️ Auto-Saved to Cloud"; 
+            ind.style.color = "#10b981"; 
+            setTimeout(()=>ind.innerText='', 3000);
+        }
+    }
+}
+
+function generateHistorySummary(data) {
+    if(!data.pharmacists || !data.cells) return "";
+    return data.pharmacists.map((p, i) => {
+        let val = data.cells[`cell-${i}-1`]; // Saturday summary
+        let sh = data.shifts ? data.shifts.find(s => s.id == val) : null;
+        let timeStr = sh ? `${sh.startHour} ${sh.startPeriod}` : (val === 'VACATION' ? 'VAC' : 'OFF');
+        let bg = sh ? sh.color : (val === 'VACATION' ? '#ea580c' : '#94a3b8');
+        return `<span style="background:${bg}; color:white; padding:4px 8px; border-radius:6px; font-size:11px; margin-right:4px; font-weight:bold; display:inline-block; margin-bottom:4px;">${p.name || 'Ph'+(i+1)}: ${timeStr}</span>`;
+    }).join(' ');
+}
+async function openHistory() {
+    const pId = activeSession.role === 'pharmacy' ? activeSession.id : pharmacyNumber;
+    if (!pId || pId === "Monitor") return showToast("Please select a pharmacy first.", "error");
+
+    document.getElementById('historyModal').style.display = 'flex';
+    const list = document.getElementById('historyList');
+    list.innerHTML = "<h3 style='text-align:center; color:#64748b;'>⏳ Safety Cleaning & Fetching...</h3>";
+
+    try {
+        // 1. حساب تاريخ الـ 8 أسابيع
+        const eightWeeksAgo = new Date();
+        eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
+        const isoDate = eightWeeksAgo.toISOString().split('T')[0];
+
+        // 2. تنظيف تلقائي للسجلات القديمة (8 أسابيع) اللي "مش مفضلة"
+        // التعديل هنا: بنعتمد على عمود is_pinned المستقل في قاعدة البيانات
+        await _supabase
+            .from('pharmacy_schedules')
+            .delete()
+            .eq('pharmacy_id', pId)
+            .lt('created_at', isoDate)
+            .eq('is_pinned', false); 
+
+        // 3. جلب البيانات النظيفة (النجوم دايما محفوظة)
+        const { data: cleanData } = await _supabase
+            .from('pharmacy_schedules')
+            .select('*')
+            .eq('pharmacy_id', pId)
+            .order('created_at', { ascending: false });
+
+        if (cleanData && cleanData.length > 0) {
+            // التعديل هنا: بنقرأ حالة النجمة من العمود مباشرة وليس من داخل الـ JSON
+            const pinned = cleanData.filter(r => r.is_pinned === true);
+            const unpinned = cleanData.filter(r => r.is_pinned !== true).slice(0, 8);
+            const displayData = [...pinned, ...unpinned];
+
+            list.innerHTML = displayData.map((rec, i) => {
+                const isPinned = rec.is_pinned === true;
+                const summary = generateHistorySummary(rec.data);
+                const weekStrEn = getWeekOfMonthEn(rec.week_start_date);
+                
+                return `
+                <div style="padding:15px; border:2px solid ${isPinned ? '#f59e0b' : '#e2e8f0'}; border-radius:16px; background:${isPinned ? '#fffbeb' : '#f8fafc'}; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; position:relative;">
+                    ${isPinned ? '<span style="position:absolute; top:-10px; left:20px; background:#f59e0b; color:white; font-size:10px; padding:2px 8px; border-radius:10px; font-weight:900;">FAVORITE</span>' : ''}
+                    <div style="text-align:left; flex:1;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <strong style="color:#0f172a; font-size:16px;">📅 ${weekStrEn}</strong>
+                            <button id="star-${rec.id}" onclick="togglePinRecord('${rec.id}', ${isPinned})" style="background:none; border:none; font-size:22px; cursor:pointer; outline:none;">${isPinned ? '⭐' : '☆'}</button>
+                        </div>
+                        <div style="margin-top:10px;">${summary}</div>
+                        <div style="color:#64748b; font-size:11px; margin-top:8px;">Saved: ${new Date(rec.created_at).toLocaleString('en-US')}</div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button class="btn btn-primary" style="padding:10px 15px; font-size:13px;" onclick="applyHistoryRecord('${rec.id}')">Apply</button>
+                        <button class="btn" style="background:#ef4444; color:white; padding:8px 12px; font-size:11px; border-radius:8px; font-weight:bold;" onclick="deleteHistoryRecord('${rec.id}')">🗑️ Delete</button>
+                    </div>
+                </div>`;
+            }).join('');
+        } else {
+            list.innerHTML = "<p style='text-align:center;'>📭 No records found.</p>";
+        }
+    } catch (err) {
+        console.error(err);
+        showToast("❌ Error during cleanup", "error");
+    }
+}
+// ولا تنسى تضيف دالة الحذف دي كمان في الأكواد عندك عشان الزرار يشتغل:
+async function deleteHistoryRecord(id) {
+    if (confirm("Are you sure you want to delete this record?")) {
+        const { error } = await _supabase.from('pharmacy_schedules').delete().eq('id', id);
+        if (!error) {
+            showToast("🗑️ Record deleted", "success");
+            openHistory(); // تحديث القائمة فوراً
+        } else {
+            showToast("❌ Error deleting", "error");
+        }
+    }
+}
+let currentDeleteId = null; // متغير لحفظ الـ ID اللي هنمسحه
+
+function deleteHistoryRecord(id) {
+    currentDeleteId = id; // حفظ الـ ID مؤقتاً
+    document.getElementById('deleteConfirmModal').style.display = 'flex'; // إظهار البوكس
+    
+    // ربط زرار الحذف النهائي في المودال
+    document.getElementById('confirmDeleteBtn').onclick = async () => {
+        try {
+            const { error } = await _supabase
+                .from('pharmacy_schedules')
+                .delete()
+                .eq('id', currentDeleteId);
+
+            if (error) throw error;
+
+            showToast("🗑️ Record deleted successfully", "success");
+            closeDeleteModal(); // قفل البوكس
+            openHistory(); // تحديث الأرشيف
+        } catch (e) {
+            showToast("❌ Error deleting: " + e.message, "error");
+        }
+    };
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteConfirmModal').style.display = 'none';
+    currentDeleteId = null;
+}
+// 🔴 تحديث النجمة برمجياً بدون إخفاء الشاشة
+document.getElementById('historyModal').addEventListener('click', function(e) {
+    if (e.target === this) closeHistory();
+});
+async function togglePinRecord(id, currentState) {
+    const starBtn = document.getElementById(`star-${id}`);
+    const originalContent = starBtn.innerHTML;
+    starBtn.innerHTML = '⏳';
+    
+    // التحديث دلوقتي بقى مباشر على عمود is_pinned المستقل
+    // مش محتاجين نجلب الـ data JSON ونعدلها ونرفعها تاني
+    const { error } = await _supabase
+        .from('pharmacy_schedules')
+        .update({ is_pinned: !currentState }) 
+        .eq('id', id);
+            
+    if (!error) {
+        showToast(!currentState ? "⭐ Added to Favorites" : "☆ Removed from Favorites", "success");
+        // إعادة بناء الأرشيف فوراً عشان الترتيب الجديد يظهر (المفضل فوق)
+        openHistory(); 
+    } else {
+        starBtn.innerHTML = originalContent;
+        showToast("❌ Error updating favorite status", "error");
+    }
+}
+async function applyHistoryRecord(id) {
+    const { data } = await _supabase.from('pharmacy_schedules').select('data, week_start_date').eq('id', id).single();
+    if (data && data.data) {
+        document.getElementById('manualWeekStart').value = data.week_start_date;
+        restoreFullEnvironment(data.data);
+        closeHistory();
+        setTimeout(() => { generateTimeBasedScheduleTables(); }, 500);
+        showToast("✅ Record applied successfully!", "success");
+    }
+}
+
+function closeHistory() { document.getElementById('historyModal').style.display = 'none'; }
+
+// 📥📤 JSON IMPORT/EXPORT
+function exportJSONData() {
+    const data = captureFullEnvironment();
+    if(!data) return;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Pharmacy_${activeSession.id}_Backup.json`;
+    link.click();
+    showToast("📥 JSON Backup Exported!", "success");
+}
+
+function importJSONData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if(data.pharmacists && data.cells) {
+                restoreFullEnvironment(data);
+                showToast("📤 Data Restored from JSON!", "success");
+                triggerAutoSave();
+            } else {
+                throw new Error("Invalid format");
+            }
+        } catch (err) {
+            showToast("❌ Invalid JSON File", "error");
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; 
+}
+async function exportAsPDF() {
+    const el = document.getElementById('scheduleDisplay');
+    if(!el.innerHTML) return showToast("🛑 Generate schedule first!", "error");
+
+    showToast("⏳ Creating Full PDF...", "info");
+    
+    try {
+        // 1. التقاط الجدول بالكامل حتى الأجزاء غير الظاهرة
+        const canvas = await html2canvas(el, { 
+            scale: 2, 
+            useCORS: true,
+            logging: false,
+            windowHeight: el.scrollHeight // دي بتضمن التقاط الطول الكامل
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        
+        // 2. حساب الأبعاد لتناسب ورقة A4 أو ورقة مخصصة بالطول
+        const imgWidth = 210; // عرض A4 بالـ mm
+        const pageHeight = 297; // طول A4 بالـ mm
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        // لو الجدول أطول من صفحة A4 واحدة، هنخلي الـ PDF ياخد مقاس الجدول بالظبط
+        const pdf = new jsPDF('p', 'mm', [imgWidth, imgHeight > pageHeight ? imgHeight : pageHeight]);
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        
+        const pNo = pharmacyNumber || activeSession.id;
+        pdf.save(`Full_Schedule_Ph${pNo}.pdf`);
+        
+        showToast("✅ Full PDF Exported!", "success");
+    } catch(e) {
+        console.error(e);
+        showToast("❌ PDF failed", "error");
+    }
+}
+async function exportAsImage() {
+    const el = document.getElementById('scheduleDisplay');
+    const pNo = pharmacyNumber || activeSession.id;
+    const sDate = document.getElementById('manualWeekStart').value || new Date().toISOString().split('T')[0];
+    
+    showToast("⏳ Processing Image...", "info");
+    try {
+        const canvas = await html2canvas(el, { scale: 3, backgroundColor: "#ffffff" });
+        const link = document.createElement('a');
+        link.download = `Schedule_Pharmacy${pNo}_${sDate}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast("✅ Image Saved!", "success");
+    } catch(e) {
+        showToast("❌ Error: " + e.message, "error");
+    }
+}
+async function shareViaWhatsApp() {
+    const el = document.getElementById('scheduleDisplay');
+    if(!el.innerHTML) return showToast("🛑 Generate schedule first!", "error");
+    
+    showToast("⏳ Preparing for direct share...", "info");
+    
+    try {
+        // 1. تحويل الجدول لصورة
+        const canvas = await html2canvas(el, { scale: 3, backgroundColor: "#ffffff" });
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const file = new File([blob], `Schedule_Ph${pharmacyNumber}.png`, { type: 'image/png' });
+
+        // 2. التحقق هل المتصفح يدعم مشاركة الملفات مباشرة (Web Share API)
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                files: [file],
+                title: 'Mono Duty Schedule',
+                text: `🏥 Mono Duty Schedule - Pharmacy #${pharmacyNumber}`
+            });
+            showToast("✅ Share menu opened!", "success");
+        } else {
+            // 3. لو المتصفح قديم مش ببدعم الخاصية دي، نرجع للخطة البديلة (التحميل التلقائي)
+            const imgData = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `Schedule_Ph${pharmacyNumber}.png`;
+            link.href = imgData;
+            link.click();
+            window.open(`https://wa.me/?text=Image%20downloaded,%20please%20attach%20it`, '_blank');
+            showToast("⚠️ Browser limited. Image downloaded.", "info");
+        }
+    } catch(e) {
+        console.error(e);
+        showToast("❌ Share failed", "error");
+    }
+}
+function initParticles() {
+    const container = document.getElementById('particles-bg-canvas');
+    if (!container) return;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+    const geometry = new THREE.BufferGeometry();
+    const pos = new Float32Array(500 * 3);
+    for(let i=0; i<pos.length; i++) pos[i] = (Math.random()-0.5)*100;
+    geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const material = new THREE.PointsMaterial({ size: 0.3, color: 0x38bdf8, transparent: true, opacity: 0.6 });
+    const points = new THREE.Points(geometry, material);
+    scene.add(points);
+    camera.position.z = 40;
+    function animate() { requestAnimationFrame(animate); points.rotation.y += 0.001; renderer.render(scene, camera); }
+    animate();
+}
+function resetAllData() {
+    // إظهار المودال المرسوم بدل الـ confirm
+    document.getElementById('resetConfirmModal').style.display = 'flex';
+    
+    // عند الضغط على زرار التأكيد داخل المودال
+    document.getElementById('confirmResetBtn').onclick = function() {
+        // تنفيذ عملية التصفير
+        pharmacists = [{name: '', defaultShift: ''}, {name: '', defaultShift: ''}, {name: '', defaultShift: ''}, {name: '', defaultShift: ''}];
+        document.getElementById('manualPharmacistCount').value = "4";
+        document.getElementById('manualWeekStart').value = "";
+        resetToDefaultShifts();
+        document.getElementById('manualScheduleGrid').innerHTML = '';
+        document.getElementById('scheduleDisplay').innerHTML = '';
+        document.getElementById('actionFooter').style.display = 'none';
+        renderPharmacists();
+        
+        showToast("🔄 System cleared successfully", "warning");
+        closeResetModal();
+    };
+}
+
+function closeResetModal() {
+    document.getElementById('resetConfirmModal').style.display = 'none';
+}
+</script>
+</body>
+</html>
