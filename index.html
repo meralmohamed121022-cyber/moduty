@@ -1018,13 +1018,11 @@ async function openHistory() {
     list.innerHTML = "<h3 style='text-align:center; color:#64748b;'>⏳ Safety Cleaning & Fetching...</h3>";
 
     try {
-        // 1. حساب تاريخ الـ 8 أسابيع
+        // 1. حساب تاريخ الـ 8 أسابيع للمسح التلقائي
         const eightWeeksAgo = new Date();
         eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
         const isoDate = eightWeeksAgo.toISOString().split('T')[0];
 
-        // 2. تنظيف تلقائي للسجلات القديمة (8 أسابيع) اللي "مش مفضلة"
-        // التعديل هنا: بنعتمد على عمود is_pinned المستقل في قاعدة البيانات
         await _supabase
             .from('pharmacy_schedules')
             .delete()
@@ -1032,15 +1030,16 @@ async function openHistory() {
             .lt('created_at', isoDate)
             .eq('is_pinned', false); 
 
-        // 3. جلب البيانات النظيفة (النجوم دايما محفوظة)
+        // 2. جلب البيانات بترتيب النجوم أولاً ثم رقم الترتيب اليدوي (sort_order)
         const { data: cleanData } = await _supabase
             .from('pharmacy_schedules')
             .select('*')
             .eq('pharmacy_id', pId)
-            .order('created_at', { ascending: false });
+            .order('is_pinned', { ascending: false }) // المفضل يظهر فوق
+            .order('sort_order', { ascending: true }) // الترتيب حسب الرقم (1، 2، 3...)
+            .order('created_at', { ascending: false }); // الأحدث لو تساوى الترتيب
 
         if (cleanData && cleanData.length > 0) {
-            // التعديل هنا: بنقرأ حالة النجمة من العمود مباشرة وليس من داخل الـ JSON
             const pinned = cleanData.filter(r => r.is_pinned === true);
             const unpinned = cleanData.filter(r => r.is_pinned !== true).slice(0, 8);
             const displayData = [...pinned, ...unpinned];
@@ -1057,6 +1056,15 @@ async function openHistory() {
                         <div style="display:flex; align-items:center; gap:10px;">
                             <strong style="color:#0f172a; font-size:16px;">📅 ${weekStrEn}</strong>
                             <button id="star-${rec.id}" onclick="togglePinRecord('${rec.id}', ${isPinned})" style="background:none; border:none; font-size:22px; cursor:pointer; outline:none;">${isPinned ? '⭐' : '☆'}</button>
+                            
+                            ${isPinned ? `
+                                <div style="display:flex; align-items:center; gap:5px; background:#fef3c7; padding:2px 8px; border-radius:8px; border:1px solid #fde68a;">
+                                    <span style="font-size:10px; font-weight:800; color:#b45309;">POS:</span>
+                                    <input type="number" value="${rec.sort_order || 999}" 
+                                           style="width:45px; border:none; background:transparent; font-weight:900; color:#b45309; text-align:center; outline:none;"
+                                           onchange="updateSortOrder('${rec.id}', this.value)">
+                                </div>
+                            ` : ''}
                         </div>
                         <div style="margin-top:10px;">${summary}</div>
                         <div style="color:#64748b; font-size:11px; margin-top:8px;">Saved: ${new Date(rec.created_at).toLocaleString('en-US')}</div>
@@ -1073,6 +1081,21 @@ async function openHistory() {
     } catch (err) {
         console.error(err);
         showToast("❌ Error during cleanup", "error");
+    }
+}
+
+// دالة تحديث الترتيب اليدوي
+async function updateSortOrder(id, newOrder) {
+    const { error } = await _supabase
+        .from('pharmacy_schedules')
+        .update({ sort_order: parseInt(newOrder) })
+        .eq('id', id);
+
+    if (!error) {
+        showToast("🔢 Order updated!", "success");
+        openHistory(); // إعادة التحميل لترتيب العناصر فوراً
+    } else {
+        showToast("❌ Update failed", "error");
     }
 }
 // ولا تنسى تضيف دالة الحذف دي كمان في الأكواد عندك عشان الزرار يشتغل:
@@ -1388,6 +1411,20 @@ function renderSupervisorPharmacies() {
 function quickFetch(phNo) {
     document.getElementById('supSearchPNo').value = phNo;
     supervisorFetchSchedule();
+}
+async function updateSortOrder(id, newOrder) {
+    const { error } = await _supabase
+        .from('pharmacy_schedules')
+        .update({ sort_order: parseInt(newOrder) })
+        .eq('id', id);
+
+    if (!error) {
+        showToast("🔢 Order updated!", "success");
+        // مش لازم نعمل Refresh كامل، بس عشان الترتيب يتغير فوراً ممكن نستدعي openHistory
+        openHistory();
+    } else {
+        showToast("❌ Error updating order", "error");
+    }
 }
 </script>
 </body>
