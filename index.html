@@ -466,9 +466,9 @@ async function processCloudLogin() {
             if (!data) {
                 const { error: insErr } = await _supabase.from('pharmacy_accounts').insert([{ pharmacy_id: pNo, password: pId }]);
                 if(insErr) throw insErr;
-                data = { pharmacy_id: pNo, supervisor_name: "MONO" };
+                data = { pharmacy_id: pNo, supervisor_name: "" }; // تعديل: بدون MONO
             }
-            saveSession({ id: pNo, role: 'pharmacy', supName: data.supervisor_name || 'MONO' });
+            saveSession({ id: pNo, role: 'pharmacy', supName: data.supervisor_name || '' }); // تعديل: تسجيل الفراغ كقيمة افتراضية
         } else {
             const user = document.getElementById('authSupUser').value;
             const pass = document.getElementById('authSupPass').value;
@@ -625,7 +625,6 @@ let shifts = [
 ];
 const days = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday'];
 
-// 🟢 إعدادات الأيام: ضفنا خاصية isHidden
 let dayOrderConfigs = [
     { id: 0, breakAfter: true, isHidden: false },  
     { id: 1, breakAfter: false, isHidden: false }, 
@@ -766,7 +765,6 @@ function renderDaySorter() {
         const dayDiv = document.createElement('div');
         dayDiv.className = 'day-sort-item' + (config.isHidden ? ' is-hidden' : '');
 
-        // 👁️ زرار الإخفاء والإظهار
         const hideBtn = document.createElement('button');
         hideBtn.innerHTML = config.isHidden ? '🚫' : '👁️';
         hideBtn.className = 'hide-toggle-btn';
@@ -1014,15 +1012,12 @@ function generateTimeBasedScheduleTables(isSupervisor = false, supName = "", sho
     let currentGroup = { title: [], range: [] };
     
     dayOrderConfigs.forEach((config, idx) => {
-        // لو اليوم مش مخفي، ضيفه للمجموعة
         if (!config.isHidden) {
             currentGroup.range.push(config.id);
             currentGroup.title.push(days[config.id]);
         }
 
-        // اقفل المجموعة لو وصلنا للـ Break أو لو ده آخر يوم
         if (config.breakAfter || idx === dayOrderConfigs.length - 1) {
-            // نتأكد إن المجموعة فيها أيام أصلاً عشان لو عملنا إخفاء ليوم لوحده
             if (currentGroup.range.length > 0) {
                 let groupTitle = currentGroup.title.length > 1 
                     ? `${currentGroup.title[0]} – ${currentGroup.title[currentGroup.title.length - 1]}` 
@@ -1038,6 +1033,16 @@ function generateTimeBasedScheduleTables(isSupervisor = false, supName = "", sho
         document.getElementById('actionFooter').style.display = 'none';
         return;
     }
+
+    // تعديل اللوجيك الديناميكي لاسم المشرف
+    let supervisorName = "";
+    if (activeSession.role === 'supervisor') {
+        supervisorName = activeSession.id;
+    } else {
+        supervisorName = activeSession.supName || "";
+        if (supervisorName.toUpperCase() === 'MONO') supervisorName = ""; 
+    }
+    let supDisplay = supervisorName ? ` ⚡️ SUPERVISOR: DR. ${supervisorName.toUpperCase()}` : "";
 
     groups.forEach((g, idx) => {
         const headers = g.range.map(i => `<th>${days[i].toUpperCase()}</th>`).join('');
@@ -1110,8 +1115,6 @@ function generateTimeBasedScheduleTables(isSupervisor = false, supName = "", sho
         }).join('');
 
         const weekSubStr = idx === 0 && rawDate ? `<div style="font-size:14px; color:#64748b; font-weight:600;">${formattedDateEn}</div>` : '';
-        let supervisorName = activeSession.supName || "MONO";
-        if (isSupervisor) supervisorName = supName;
 
         display.innerHTML += `
             <div style="margin-bottom:40px; page-break-inside:avoid;">
@@ -1124,7 +1127,7 @@ function generateTimeBasedScheduleTables(isSupervisor = false, supName = "", sho
                 ${idx === 0 ? `
                 <div style="text-align:center; background:linear-gradient(90deg, #1e293b, #334155); padding:10px; border-radius:10px; margin-top:10px; color:white;">
                     <div style="font-size:1.8rem; font-weight:900; background:linear-gradient(135deg,#06b6d4,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:2px;">MONO</div>
-                    <div style="font-size:12px; margin-top:5px; font-weight:700; color:#94a3b8;">Ph: Mohamed Kholeif ⚡️ SUPERVISOR: DR. ${supervisorName.toUpperCase()}</div>
+                    <div style="font-size:12px; margin-top:5px; font-weight:700; color:#94a3b8;">Ph: Mohamed Kholeif${supDisplay}</div>
                 </div>` : ''}
             </div>
         `;
