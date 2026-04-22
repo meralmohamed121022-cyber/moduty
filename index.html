@@ -112,9 +112,24 @@ body{background:linear-gradient(135deg,#06b6d4,#0891b2);min-height:100vh;padding
 .sup-card:hover{background:#06b6d4;color:white;border-color:#06b6d4;}
 
 #particles-bg-canvas{position:fixed;top:0;left:0;width:100%;height:100vh;z-index:-999;}
-.logout-btn{position:fixed;top:20px;right:20px;z-index:9999;padding:10px 20px;background:#ef4444;color:white;border:none;border-radius:10px;font-weight:bold;cursor:pointer;box-shadow:0 4px 10px rgba(239,68,68,0.4);}
-.logout-btn:hover{background:#dc2626;}
+.logout-btn {
+    position: absolute; /* تغيير من fixed لـ absolute */
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    padding: 10px 20px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(239,68,68,0.4);
+}
 
+.logout-btn:hover {
+    background: #dc2626;
+}
 /* Auto Save Indicator */
 #autoSaveIndicator { font-size: 13px; font-weight: 700; color: #64748b; margin-top: 10px; text-align: center; height: 20px; transition: 0.3s; }
 
@@ -158,29 +173,16 @@ body{background:linear-gradient(135deg,#06b6d4,#0891b2);min-height:100vh;padding
     .header-personal-img:hover {
         transform: scale(1.1) rotate(3deg);
     }
-
-    .social-bar {
-        display: flex;
-        gap: 20px;
-        background: rgba(255, 255, 255, 0.2);
-        padding: 10px 25px;
-        border-radius: 50px;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    }
-
-    .s-icon {
-        cursor: pointer;
-        transition: 0.3s ease;
-        display: flex;
-        align-items: center;
-    }
-
-    .s-icon:hover {
-        transform: translateY(-5px);
-        filter: drop-shadow(0 5px 8px rgba(0,0,0,0.3));
-    }
+.social-bar {
+    display: flex;
+    gap: 20px;
+    background: rgba(255, 255, 255, 0.9); /* زودنا تركيز اللون الأبيض عشان الأيقونات تظهر */
+    padding: 10px 25px;
+    border-radius: 50px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15); /* زودنا الظل شوية عشان تبرز عن الخلفية الزرقاء */
+}
 </style>
 
 <div id="profile-header-bar">
@@ -1322,17 +1324,26 @@ async function togglePinRecord(id, currentState) {
 async function applyHistoryRecord(id) {
     const { data } = await _supabase.from('pharmacy_schedules').select('data, week_start_date, schedule_name').eq('id', id).single();
     if (data && data.data) {
-        document.getElementById('manualWeekStart').value = data.week_start_date;
+        // الحصول على تاريخ اليوم بتنسيق YYYY-MM-DD
+        const today = new Date().toISOString().split('T')[0];
+        
+        // تعيين تاريخ اليوم بدلاً من التاريخ القديم المحفوظ
+        document.getElementById('manualWeekStart').value = today;
+        
         const groupNameInput = document.getElementById('scheduleCustomName');
         if (groupNameInput) groupNameInput.value = data.schedule_name || '';
 
         restoreFullEnvironment(data.data);
         closeHistory();
-        setTimeout(() => { generateTimeBasedScheduleTables(false, '', false); }, 500);
-        showToast("✅ Record applied successfully!", "success");
+        
+        // تأخير بسيط لضمان استعادة البيانات ثم بناء الجداول بالتاريخ الجديد
+        setTimeout(() => { 
+            generateTimeBasedScheduleTables(false, '', false); 
+        }, 500);
+        
+        showToast("✅ Applied with TODAY's Date!", "success");
     }
 }
-
 function closeHistory() { document.getElementById('historyModal').style.display = 'none'; }
 
 function exportJSONData() {
@@ -1510,11 +1521,14 @@ function generateHistorySummary(data) {
     if (!data || !data.pharmacists || !data.cells) return "<span style='color:#94a3b8;'>No details</span>";
     try {
         let summaryList = data.pharmacists.map((p, i) => {
-            let val = data.cells[`cell-${i}-0` ]; 
+            // التعديل هنا: سحب بيانات الخلية رقم 1 (الأحد) بدل 0 (السبت)
+            let val = data.cells[`cell-${i}-1` ]; 
+            
             let sh = (data.shifts) ? data.shifts.find(s => s.id == val) : (activeSession.shifts ? activeSession.shifts.find(s => s.id == val) : null);
             let timeScore = 9999;
             let displayTime = (val === 'VACATION') ? 'VAC' : (val === 'OFF' ? 'OFF' : '???');
             let color = (val === 'VACATION') ? '#ea580c' : '#94a3b8';
+            
             if (sh) {
                 displayTime = `${sh.startHour} ${sh.startPeriod}`;
                 color = sh.color;
@@ -1522,13 +1536,14 @@ function generateHistorySummary(data) {
                 if (sh.startPeriod === 'PM' && sh.startHour !== 12) timeScore += 12;
                 if (sh.startPeriod === 'AM' && sh.startHour === 12) timeScore = 0;
             } else if (val === 'VACATION') { timeScore = 10000; }
+            
             return { name: p.name || 'Ph' + (i + 1), timeStr: displayTime, bg: color, timeScore: timeScore };
         });
+        
         summaryList.sort((a, b) => a.timeScore - b.timeScore);
         return summaryList.map(item => `<span style="background:${item.bg}; color:white; padding:4px 8px; border-radius:6px; font-size:11px; margin-right:4px; font-weight:bold; display:inline-block; margin-bottom:4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">${item.name}: ${item.timeStr}</span>`).join(' ');
     } catch (e) { return "<span style='color:#ef4444;'>⚠️ Display issue</span>"; }
 }
-
 function closeSaveModal() { document.getElementById('customSaveModal').style.display = 'none'; }
 
 async function confirmSaveToArchive() {
