@@ -112,24 +112,9 @@ body{background:linear-gradient(135deg,#06b6d4,#0891b2);min-height:100vh;padding
 .sup-card:hover{background:#06b6d4;color:white;border-color:#06b6d4;}
 
 #particles-bg-canvas{position:fixed;top:0;left:0;width:100%;height:100vh;z-index:-999;}
-.logout-btn {
-    position: absolute; /* تغيير من fixed لـ absolute */
-    top: 20px;
-    right: 20px;
-    z-index: 9999;
-    padding: 10px 20px;
-    background: #ef4444;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 4px 10px rgba(239,68,68,0.4);
-}
+.logout-btn{position:absolute;top:20px;right:20px;z-index:9999;padding:10px 20px;background:#ef4444;color:white;border:none;border-radius:10px;font-weight:bold;cursor:pointer;box-shadow:0 4px 10px rgba(239,68,68,0.4);}
+.logout-btn:hover{background:#dc2626;}
 
-.logout-btn:hover {
-    background: #dc2626;
-}
 /* Auto Save Indicator */
 #autoSaveIndicator { font-size: 13px; font-weight: 700; color: #64748b; margin-top: 10px; text-align: center; height: 20px; transition: 0.3s; }
 
@@ -147,6 +132,12 @@ body{background:linear-gradient(135deg,#06b6d4,#0891b2);min-height:100vh;padding
 .hide-toggle-btn { border:none; background:none; cursor:pointer; font-size:16px; margin-right:2px; opacity: 0.7; transition: 0.2s;}
 .hide-toggle-btn:hover { opacity: 1; transform: scale(1.1); }
 </style>
+
+<script>
+window.onerror = function(message, source, lineno, colno, error) {
+    alert("JS ERROR: " + message + " at line " + lineno);
+};
+</script>
 </head>
 <body>
 <style>
@@ -163,26 +154,46 @@ body{background:linear-gradient(135deg,#06b6d4,#0891b2);min-height:100vh;padding
         width: 100px;
         height: 100px;
         border-radius: 50%;
-        border: 4px solid rgba(255, 255, 255, 0.4);
+        border: 4px solid rgba(255, 255, 255, 0.8);
         box-shadow: 0 8px 20px rgba(0,0,0,0.2);
         object-fit: cover;
         transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         cursor: pointer;
+        position: relative;
+        z-index: 20;
     }
 
     .header-personal-img:hover {
         transform: scale(1.1) rotate(3deg);
     }
-.social-bar {
-    display: flex;
-    gap: 20px;
-    background: rgba(255, 255, 255, 0.9); /* زودنا تركيز اللون الأبيض عشان الأيقونات تظهر */
-    padding: 10px 25px;
-    border-radius: 50px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.15); /* زودنا الظل شوية عشان تبرز عن الخلفية الزرقاء */
-}
+
+    .social-bar {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 25px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(240,249,255,0.95));
+        padding: 15px 35px;
+        border-radius: 50px;
+        margin-top: -20px;
+        backdrop-filter: blur(15px);
+        border: 2px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15), inset 0 2px 5px rgba(255,255,255,1);
+        position: relative;
+        z-index: 10;
+    }
+
+    .s-icon {
+        cursor: pointer;
+        transition: 0.3s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .s-icon:hover {
+        transform: translateY(-5px);
+        filter: drop-shadow(0 5px 8px rgba(0,0,0,0.3));
+    }
 </style>
 
 <div id="profile-header-bar">
@@ -511,9 +522,20 @@ function launchApp() {
         document.getElementById('sendToSupervisorBtn').style.display = 'none';
         renderSupervisorPharmacies();
     } else {
-        document.getElementById('displayRoleInfo').innerText = `PHARMACY: #${activeSession.id}`;
+        let initSupHtml = activeSession.supName ? `<span style="font-size:14px; color:#0f172a; background:#fef08a; padding:4px 12px; border-radius:12px; margin-left:15px; font-weight:900; border:2px solid #facc15; box-shadow:0 4px 10px rgba(0,0,0,0.1);">👮 Supervisor: Dr. ${activeSession.supName.toUpperCase()}</span>` : `<span style="font-size:12px; color:#ef4444; background:#fee2e2; padding:3px 10px; border-radius:12px; margin-left:15px; font-weight:800; border:1px solid #fca5a5;">⚠️ No Supervisor Assigned</span>`;
+        document.getElementById('displayRoleInfo').innerHTML = `PHARMACY: #${activeSession.id} ${initSupHtml}`;
         document.getElementById('pharmacyNo').value = activeSession.id;
         pharmacyNumber = activeSession.id;
+        
+        let pidInt = parseInt(activeSession.id);
+        _supabase.from('supervisor_accounts').select('username').contains('managed_pharmacies', [pidInt]).single().then(({data}) => {
+            if(data && data.username && data.username.toUpperCase() !== 'MONO') {
+                activeSession.supName = data.username;
+                localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
+            }
+            let asyncSupHtml = activeSession.supName ? `<span style="font-size:14px; color:#0f172a; background:#fef08a; padding:4px 12px; border-radius:12px; margin-left:15px; font-weight:900; border:2px solid #facc15; box-shadow:0 4px 10px rgba(0,0,0,0.1);">👮 Supervisor: Dr. ${activeSession.supName.toUpperCase()}</span>` : `<span style="font-size:12px; color:#ef4444; background:#fee2e2; padding:3px 10px; border-radius:12px; margin-left:15px; font-weight:800; border:1px solid #fca5a5;">⚠️ No Supervisor Assigned</span>`;
+            document.getElementById('displayRoleInfo').innerHTML = `PHARMACY: #${activeSession.id} ${asyncSupHtml}`;
+        }).catch(e => console.log(e));
         
         document.getElementById('manualPharmacistCount').value = "4";
         updatePharmacistCount();
@@ -684,6 +706,23 @@ function renderPharmacists() {
             </select>
         </div>`;
     }).join('');
+
+    if (window.lastModifiedShiftId) {
+        const el = document.getElementById(`shift-item-container-${window.lastModifiedShiftId}`);
+        if (el) {
+            setTimeout(() => {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.8s ease, transform 0.5s ease';
+                el.style.boxShadow = '0 0 25px 5px rgba(6, 182, 212, 0.6)';
+                el.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    el.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)';
+                    el.style.transform = 'scale(1)';
+                }, 2000);
+            }, 100);
+        }
+        window.lastModifiedShiftId = null;
+    }
 }
 
 function getShiftColor(h, p) {
@@ -693,7 +732,25 @@ function getShiftColor(h, p) {
     return '#7e57c2';
 }
 
+
+function sortShiftsArray() {
+    shifts.sort((a, b) => {
+        let aComplete = a.startHour && a.startPeriod && a.endHour && a.endPeriod;
+        let bComplete = b.startHour && b.startPeriod && b.endHour && b.endPeriod;
+        if (!aComplete && bComplete) return 1;
+        if (aComplete && !bComplete) return -1;
+        if (!aComplete && !bComplete) return 0;
+        
+        let ah = (a.startHour % 12) + (a.startPeriod === 'PM' ? 12 : 0);
+        let bh = (b.startHour % 12) + (b.startPeriod === 'PM' ? 12 : 0);
+        return ah - bh;
+    });
+}
+
 function renderShifts() {
+    sortShiftsArray();
+    updateGridSelects();
+
     const wrap = document.getElementById('shiftsList');
     wrap.innerHTML = shifts.map((s, i) => {
         const vac = simpleShiftVacations[s.id] || { enabled: false, list: [] };
@@ -709,9 +766,9 @@ function renderShifts() {
         </div>`;
 
         return `
-        <div class="shift-item-container">
+        <div id="shift-item-container-${s.id}" class="shift-item-container">
             <div class="shift-header-row">
-                <input class="shift-name-input" value="${s.name}" onchange="shifts[${i}].name=this.value; renderPharmacists(); triggerAutoSave();">
+                <input class="shift-name-input" value="${s.name}" onchange="shifts[${i}].name=this.value; renderPharmacists(); updateGridSelects(); triggerAutoSave();">
                 <div style="display:flex; gap:10px; align-items:center;">
                     <div class="shift-color-circle" style="background:${s.color};"></div>
                     <button class="btn btn-danger btn-sm" style="padding:8px;" onclick="shifts.splice(${i},1); renderShifts(); renderPharmacists(); triggerAutoSave();">✖</button>
@@ -719,23 +776,41 @@ function renderShifts() {
             </div>
             <div class="time-select-row">
                 Start: <select class="time-select" onchange="updateTime(${i}, 'start', this.value, null)">${genOpts(s.startHour)}</select>
-                <select class="time-select" onchange="updateTime(${i}, 'start', null, this.value)"><option ${s.startPeriod=='AM'?'selected':''}>AM</option><option ${s.startPeriod=='PM'?'selected':''}>PM</option></select>
+                <select class="time-select" onchange="updateTime(${i}, 'start', null, this.value)"><option value="" ${!s.startPeriod?'selected':''}>-</option><option value="AM" ${s.startPeriod=='AM'?'selected':''}>AM</option><option value="PM" ${s.startPeriod=='PM'?'selected':''}>PM</option></select>
                 <span style="color:#06b6d4; font-weight:900;">→</span> 
                 End: <select class="time-select" onchange="updateTime(${i}, 'end', this.value, null)">${genOpts(s.endHour)}</select>
-                <select class="time-select" onchange="updateTime(${i}, 'end', null, this.value)"><option ${s.endPeriod=='AM'?'selected':''}>AM</option><option ${s.endPeriod=='PM'?'selected':''}>PM</option></select>
+                <select class="time-select" onchange="updateTime(${i}, 'end', null, this.value)"><option value="" ${!s.endPeriod?'selected':''}>-</option><option value="AM" ${s.endPeriod=='AM'?'selected':''}>AM</option><option value="PM" ${s.endPeriod=='PM'?'selected':''}>PM</option></select>
             </div>
             ${vacHtml}
         </div>`;
     }).join('');
+
+    if (window.lastModifiedShiftId) {
+        const el = document.getElementById(`shift-item-container-${window.lastModifiedShiftId}`);
+        if (el) {
+            setTimeout(() => {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.8s ease, transform 0.5s ease';
+                el.style.boxShadow = '0 0 25px 5px rgba(6, 182, 212, 0.6)';
+                el.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    el.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)';
+                    el.style.transform = 'scale(1)';
+                }, 2000);
+            }, 100);
+        }
+        window.lastModifiedShiftId = null;
+    }
 }
 
-function genOpts(sel) { let o=''; for(let i=1;i<=12;i++) o+=`<option value="${i}" ${i==sel?'selected':''}>${i}</option>`; return o; }
+function genOpts(sel) { let o=`<option value="" ${!sel?'selected':''}>-</option>`; for(let i=1;i<=12;i++) o+=`<option value="${i}" ${i==sel?'selected':''}>${i}</option>`; return o; }
 function updateTime(i, t, h, p) {
     if(t==='start') { if(h) shifts[i].startHour=parseInt(h); if(p) shifts[i].startPeriod=p; shifts[i].color = getShiftColor(shifts[i].startHour, shifts[i].startPeriod); }
     else { if(h) shifts[i].endHour=parseInt(h); if(p) shifts[i].endPeriod=p; }
+    window.lastModifiedShiftId = shifts[i].id;
     renderShifts(); renderPharmacists(); triggerAutoSave();
 }
-function addCustomShift() { shifts.push({id:Date.now(), name:'New Shift', startHour:9, startPeriod:'AM', endHour:5, endPeriod:'PM', color:'#4fc3f7'}); renderShifts(); renderPharmacists(); triggerAutoSave(); }
+function addCustomShift() { shifts.push({id:Date.now(), name:'New Shift', startHour:'', startPeriod:'', endHour:'', endPeriod:'', color:'#94a3b8'}); sortShiftsArray(); renderShifts(); renderPharmacists(); updateGridSelects(); triggerAutoSave(); }
 function resetToDefaultShifts() {
     shifts = [
         {id:1, name:'Morning', startHour: 8, startPeriod: 'AM', endHour: 4, endPeriod: 'PM', color:'#4fc3f7'},
@@ -826,6 +901,31 @@ function moveDay(idx, dir) {
 function toggleBreak(idx) {
     dayOrderConfigs[idx].breakAfter = !dayOrderConfigs[idx].breakAfter;
     renderDaySorter();
+}
+
+
+function updateGridSelects() {
+    const grid = document.getElementById('manualScheduleGrid');
+    if (!grid || grid.style.display === 'none' || grid.style.display === '') return;
+    
+    // Save current values
+    const selects = grid.querySelectorAll('select');
+    const values = [];
+    selects.forEach(s => values.push(s.value));
+    
+    // Regenerate grid
+    generateManualGrid();
+    
+    // Restore values
+    const newSelects = grid.querySelectorAll('select');
+    // showToast('Grid Updated in Real Time!', 'success');
+    newSelects.forEach((s, i) => {
+        if(values[i]) {
+            // Check if the old value still exists as an option
+            let optionExists = Array.from(s.options).some(opt => opt.value === values[i]);
+            if(optionExists) s.value = values[i];
+        }
+    });
 }
 
 function generateManualGrid() {
@@ -1044,7 +1144,7 @@ function generateTimeBasedScheduleTables(isSupervisor = false, supName = "", sho
         supervisorName = activeSession.supName || "";
         if (supervisorName.toUpperCase() === 'MONO') supervisorName = ""; 
     }
-    let supDisplay = supervisorName ? ` ⚡️ SUPERVISOR: DR. ${supervisorName.toUpperCase()}` : "";
+    let supDisplay = supervisorName ? ` <span style="font-weight:900; color:#06b6d4; margin-left:10px; padding-left:10px; border-left:2px solid #64748b;">Dr. ${supervisorName.toUpperCase()}</span>` : "";
 
     groups.forEach((g, idx) => {
         const headers = g.range.map(i => `<th>${days[i].toUpperCase()}</th>`).join('');
@@ -1107,6 +1207,23 @@ function generateTimeBasedScheduleTables(isSupervisor = false, supName = "", sho
                 return sh ? `<td style="background:${sh.color};color:white;">${sh.startHour}:00 ${sh.startPeriod} - ${sh.endHour}:00 ${sh.endPeriod}</td>` 
                           : `<td class="off-row">OFF</td>`;
             }).join('');
+
+    if (window.lastModifiedShiftId) {
+        const el = document.getElementById(`shift-item-container-${window.lastModifiedShiftId}`);
+        if (el) {
+            setTimeout(() => {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.8s ease, transform 0.5s ease';
+                el.style.boxShadow = '0 0 25px 5px rgba(6, 182, 212, 0.6)';
+                el.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    el.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)';
+                    el.style.transform = 'scale(1)';
+                }, 2000);
+            }, 100);
+        }
+        window.lastModifiedShiftId = null;
+    }
             
             let info = `<strong style="font-size:14px; color:#1e293b;">${p.name}</strong>`;
             if (p.shift) info += `<span style="display:block;font-size:11px;color:#64748b;">(Shift Base)</span>`;
@@ -1115,6 +1232,23 @@ function generateTimeBasedScheduleTables(isSupervisor = false, supName = "", sho
             
             return `<tr><td style="background:#f8fafc;">${info}</td>${cells}</tr>`;
         }).join('');
+
+    if (window.lastModifiedShiftId) {
+        const el = document.getElementById(`shift-item-container-${window.lastModifiedShiftId}`);
+        if (el) {
+            setTimeout(() => {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.8s ease, transform 0.5s ease';
+                el.style.boxShadow = '0 0 25px 5px rgba(6, 182, 212, 0.6)';
+                el.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    el.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)';
+                    el.style.transform = 'scale(1)';
+                }, 2000);
+            }, 100);
+        }
+        window.lastModifiedShiftId = null;
+    }
 
         const weekSubStr = idx === 0 && rawDate ? `<div style="font-size:14px; color:#64748b; font-weight:600;">${formattedDateEn}</div>` : '';
 
@@ -1271,6 +1405,23 @@ async function openHistory() {
                 </div>
             </div>`;
         }).join('');
+
+    if (window.lastModifiedShiftId) {
+        const el = document.getElementById(`shift-item-container-${window.lastModifiedShiftId}`);
+        if (el) {
+            setTimeout(() => {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.8s ease, transform 0.5s ease';
+                el.style.boxShadow = '0 0 25px 5px rgba(6, 182, 212, 0.6)';
+                el.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    el.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)';
+                    el.style.transform = 'scale(1)';
+                }, 2000);
+            }, 100);
+        }
+        window.lastModifiedShiftId = null;
+    }
     } catch (err) {
         console.error("Critical History Error:", err);
         list.innerHTML = "<div style='text-align:center; padding:20px; color:#ef4444; font-weight:bold;'>❌ Failed to load history. Please try refreshing.</div>";
@@ -1324,26 +1475,17 @@ async function togglePinRecord(id, currentState) {
 async function applyHistoryRecord(id) {
     const { data } = await _supabase.from('pharmacy_schedules').select('data, week_start_date, schedule_name').eq('id', id).single();
     if (data && data.data) {
-        // الحصول على تاريخ اليوم بتنسيق YYYY-MM-DD
-        const today = new Date().toISOString().split('T')[0];
-        
-        // تعيين تاريخ اليوم بدلاً من التاريخ القديم المحفوظ
-        document.getElementById('manualWeekStart').value = today;
-        
+        document.getElementById('manualWeekStart').value = data.week_start_date;
         const groupNameInput = document.getElementById('scheduleCustomName');
         if (groupNameInput) groupNameInput.value = data.schedule_name || '';
 
         restoreFullEnvironment(data.data);
         closeHistory();
-        
-        // تأخير بسيط لضمان استعادة البيانات ثم بناء الجداول بالتاريخ الجديد
-        setTimeout(() => { 
-            generateTimeBasedScheduleTables(false, '', false); 
-        }, 500);
-        
-        showToast("✅ Applied with TODAY's Date!", "success");
+        setTimeout(() => { generateTimeBasedScheduleTables(false, '', false); }, 500);
+        showToast("✅ Record applied successfully!", "success");
     }
 }
+
 function closeHistory() { document.getElementById('historyModal').style.display = 'none'; }
 
 function exportJSONData() {
@@ -1484,6 +1626,7 @@ async function addPharmacyToQuickList() {
         currentList.push(phInt);
         const { error } = await _supabase.from('supervisor_accounts').update({ managed_pharmacies: currentList }).eq('username', activeSession.id);
         if (!error) {
+            await _supabase.from('pharmacy_accounts').update({ supervisor_name: activeSession.id }).eq('pharmacy_id', phInt);
             activeSession.info.managed_pharmacies = currentList;
             localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
             renderSupervisorPharmacies();
@@ -1521,14 +1664,11 @@ function generateHistorySummary(data) {
     if (!data || !data.pharmacists || !data.cells) return "<span style='color:#94a3b8;'>No details</span>";
     try {
         let summaryList = data.pharmacists.map((p, i) => {
-            // التعديل هنا: سحب بيانات الخلية رقم 1 (الأحد) بدل 0 (السبت)
-            let val = data.cells[`cell-${i}-1` ]; 
-            
+            let val = data.cells[`cell-${i}-0` ]; 
             let sh = (data.shifts) ? data.shifts.find(s => s.id == val) : (activeSession.shifts ? activeSession.shifts.find(s => s.id == val) : null);
             let timeScore = 9999;
             let displayTime = (val === 'VACATION') ? 'VAC' : (val === 'OFF' ? 'OFF' : '???');
             let color = (val === 'VACATION') ? '#ea580c' : '#94a3b8';
-            
             if (sh) {
                 displayTime = `${sh.startHour} ${sh.startPeriod}`;
                 color = sh.color;
@@ -1536,14 +1676,13 @@ function generateHistorySummary(data) {
                 if (sh.startPeriod === 'PM' && sh.startHour !== 12) timeScore += 12;
                 if (sh.startPeriod === 'AM' && sh.startHour === 12) timeScore = 0;
             } else if (val === 'VACATION') { timeScore = 10000; }
-            
             return { name: p.name || 'Ph' + (i + 1), timeStr: displayTime, bg: color, timeScore: timeScore };
         });
-        
         summaryList.sort((a, b) => a.timeScore - b.timeScore);
         return summaryList.map(item => `<span style="background:${item.bg}; color:white; padding:4px 8px; border-radius:6px; font-size:11px; margin-right:4px; font-weight:bold; display:inline-block; margin-bottom:4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">${item.name}: ${item.timeStr}</span>`).join(' ');
     } catch (e) { return "<span style='color:#ef4444;'>⚠️ Display issue</span>"; }
 }
+
 function closeSaveModal() { document.getElementById('customSaveModal').style.display = 'none'; }
 
 async function confirmSaveToArchive() {
