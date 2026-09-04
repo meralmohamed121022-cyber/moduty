@@ -1536,7 +1536,14 @@ async function togglePinRecord(id, currentState) {
 async function applyHistoryRecord(id) {
     const { data } = await _supabase.from('pharmacy_schedules').select('data, week_start_date, schedule_name').eq('id', id).single();
     if (data && data.data) {
-        document.getElementById('manualWeekStart').value = data.week_start_date;
+        const d = new Date();
+        const day = d.getDay();
+        let diffToSat = (day === 4 || day === 5) ? (6 - day) : (day === 6 ? 0 : -1 - day);
+        d.setDate(d.getDate() + diffToSat);
+        const offset = d.getTimezoneOffset();
+        d.setMinutes(d.getMinutes() - offset);
+        
+        document.getElementById('manualWeekStart').value = d.toISOString().split('T')[0];
         const groupNameInput = document.getElementById('scheduleCustomName');
         if (groupNameInput) groupNameInput.value = data.schedule_name || '';
 
@@ -1725,7 +1732,7 @@ function generateHistorySummary(data) {
     if (!data || !data.pharmacists || !data.cells) return "<span style='color:#94a3b8;'>No details</span>";
     try {
         let summaryList = data.pharmacists.map((p, i) => {
-            let val = data.cells[`cell-${i}-0` ]; 
+            let val = data.cells[`cell-${i}-1` ]; 
             let sh = (data.shifts) ? data.shifts.find(s => s.id == val) : (activeSession.shifts ? activeSession.shifts.find(s => s.id == val) : null);
             let timeScore = 9999;
             let displayTime = (val === 'VACATION') ? 'VAC' : (val === 'OFF' ? 'OFF' : '???');
