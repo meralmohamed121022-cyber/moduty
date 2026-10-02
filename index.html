@@ -11,6 +11,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/html2canvas@latest/dist/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<!-- FileSaver is also useful for exceljs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <style>
 /* ─────────── 1. GENERAL LAYOUT ─────────── */
@@ -563,6 +566,7 @@ function openFacebook() { window.open("https://www.facebook.com/share/1Ghv7eEw6A
 
         <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom: 30px;">
             <button class="btn" style="background:linear-gradient(135deg, #ef4444, #dc2626); padding:12px 24px; border-radius:10px;" onclick="exportAsPDF()">📄 Export PDF</button>
+            <button class="btn" style="background:linear-gradient(135deg, #10b981, #059669); padding:12px 24px; border-radius:10px;" onclick="exportAsExcel()">📊 Export Excel</button>
             <button class="btn" style="background:linear-gradient(135deg, #8b5cf6, #6d28d9); padding:12px 24px; border-radius:10px;" onclick="exportAsImage()">🖼️ Export Image</button>
             <button class="btn" style="background:linear-gradient(135deg, #3b82f6, #2563eb); padding:12px 24px; border-radius:10px;" onclick="window.print()">🖨️ Print</button>
             <button class="btn" style="background:linear-gradient(135deg, #22c55e, #16a34a); padding:12px 24px; border-radius:10px;" onclick="shareViaWhatsApp()">💬 WhatsApp</button>
@@ -1700,6 +1704,236 @@ function importJSONData(event) {
     reader.readAsText(file);
     event.target.value = ''; 
 }
+
+async function exportAsExcel() {
+    if (typeof ExcelJS === 'undefined') {
+        showToast('ExcelJS library is still loading...', 'warning');
+        return;
+    }
+    const pNo = pharmacyNumber || activeSession.id;
+    const rawDate = document.getElementById('manualWeekStart').value;
+    if (!rawDate) return showToast('🛑 Please select Week Start Date!', 'error');
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Duty Planner', { views: [{ rightToLeft: false }] });
+
+    const borderAll = {
+        top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+    };
+    const centerAlign = { vertical: 'middle', horizontal: 'center' };
+
+    const groups = [];
+    let currentGroup = { title: [], range: [] };
+    
+    dayOrderConfigs.forEach((config, idx) => {
+        if (!config.isHidden) {
+            currentGroup.range.push(config.id);
+            currentGroup.title.push(days[config.id]);
+        }
+        if (config.breakAfter || idx === dayOrderConfigs.length - 1) {
+            if (currentGroup.range.length > 0) {
+                let groupTitle = currentGroup.title.length > 1 
+                    ? `Normal Days from ${currentGroup.title[0]} till ${currentGroup.title[currentGroup.title.length - 1]}`
+                    : currentGroup.title[0];
+                groups.push({ title: groupTitle, range: [...currentGroup.range] });
+                currentGroup = { title: [], range: [] };
+            }
+        }
+    });
+
+    if (groups.length === 0) return showToast('👀 No days to export.', 'error');
+
+    const dateObj = new Date(rawDate);
+    const endDate = new Date(rawDate); endDate.setDate(endDate.getDate() + 6);
+    const dateStr1 = `${dateObj.getDate()}-${dateObj.getMonth()+1}-${dateObj.getFullYear()}`;
+    const dateStr2 = `${endDate.getDate()}-${endDate.getMonth()+1}-${endDate.getFullYear()}`;
+
+    sheet.columns = [
+        { width: 30 }, { width: 25 },
+        { width: 12 }, { width: 12 },
+        { width: 12 }, { width: 12 },
+        { width: 12 }, { width: 12 },
+        { width: 12 }, { width: 12 },
+        { width: 12 }, { width: 12 },
+        { width: 15 }
+    ];
+
+    const r1 = sheet.addRow(['Duty Weekly Planner', `PH-NO ${pNo}`, `From : Saturday ${dateStr1}`, '', '', '', '', `To Friday ${dateStr2}`, '', '', '', '', '']);
+    sheet.mergeCells('A1:B1');
+    sheet.mergeCells('C1:G1');
+    sheet.mergeCells('H1:M1');
+    
+    r1.getCell(1).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9EAD3'} };
+    r1.getCell(2).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9EAD3'} };
+    r1.eachCell(c => { c.font = {bold:true}; c.alignment = centerAlign; c.border = borderAll; });
+
+    let row2Data = ['Duty Type', 'Pharmacist Name'];
+    for (let i = 0; i < 5; i++) {
+        row2Data.push(`${i+1}${['st','nd','rd','th','th'][i]} Shift`, '');
+    }
+    row2Data.push('الاجازات');
+    const r2 = sheet.addRow(row2Data);
+    
+    let row3Data = ['', ''];
+    for (let i = 0; i < 5; i++) row3Data.push('From :', 'To :');
+    row3Data.push('');
+    const r3 = sheet.addRow(row3Data);
+
+    sheet.mergeCells('A2:A3');
+    sheet.mergeCells('B2:B3');
+    sheet.mergeCells('M2:M3');
+    for(let i=0; i<5; i++) {
+        sheet.mergeCells(2, 3 + i*2, 2, 4 + i*2);
+    }
+
+    ['A2','B2','M2'].forEach(ref => {
+        sheet.getCell(ref).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFFFE599'} };
+    });
+    for(let i=0; i<5; i++) {
+        sheet.getCell(2, 3+i*2).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9EAD3'} };
+        sheet.getCell(2, 3+i*2).font = {color: {argb: 'FF38761D'}, bold: true};
+    }
+
+    [r2, r3].forEach(row => {
+        row.eachCell(c => { c.font = c.font || {bold:true}; c.alignment = centerAlign; c.border = borderAll; });
+    });
+
+    // We add a thicker bottom border to the header rows just to separate headers from data
+    for (let col = 1; col <= 13; col++) {
+        let c = r3.getCell(col);
+        c.border = { top: {style:'thin'}, left: {style:'thin'}, right: {style:'thin'}, bottom: {style:'medium'} };
+    }
+
+    let currentRow = 4;
+    
+    const groupColors = ['FFFFFFFF', 'FFF2F2F2', 'FFEBF1DE', 'FFFFF2CC', 'FFE5E0EC', 'FFD9EAD3'];
+
+    groups.forEach((g, gIdx) => {
+        let startRow = currentRow;
+        let dayTitle = g.title + " " + (g.range.includes(0) ? dateStr1 : "");
+        if (g.range.includes(6)) dayTitle = g.title + " " + dateStr2; 
+        
+        let bgColor = groupColors[gIdx % groupColors.length];
+        
+        let usedShiftsMap = new Map();
+        pharmacists.forEach((p, pi) => {
+            let shiftCounts = {};
+            let vacCount = 0;
+            g.range.forEach(di => {
+                const val = document.getElementById(`cell-${pi}-${di}`)?.value;
+                if (val === 'VACATION') vacCount++;
+                else if (val && val !== 'OFF') {
+                    shiftCounts[val] = (shiftCounts[val] || 0) + 1;
+                }
+            });
+            
+            if (vacCount === 0) {
+                let dominantShiftId = null;
+                let maxCount = 0;
+                for (const [id, count] of Object.entries(shiftCounts)) {
+                    if (count > maxCount) { maxCount = count; dominantShiftId = id; }
+                }
+                if (dominantShiftId) {
+                    let s = shifts.find(sh => sh.id == dominantShiftId);
+                    if (s) usedShiftsMap.set(s.id, s);
+                }
+            }
+        });
+
+        let daySortedShifts = Array.from(usedShiftsMap.values()).sort((a,b) => {
+            let ah = a.startHour; if(a.startPeriod === 'PM' && ah !== 12) ah += 12; else if (a.startPeriod === 'AM' && ah === 12) ah = 0;
+            let bh = b.startHour; if(b.startPeriod === 'PM' && bh !== 12) bh += 12; else if (b.startPeriod === 'AM' && bh === 12) bh = 0;
+            return ah - bh;
+        });
+
+        pharmacists.forEach((p, pi) => {
+            let row = sheet.addRow([]);
+            row.getCell(1).value = (currentRow === startRow) ? dayTitle : '';
+            row.getCell(2).value = p.name;
+            
+            let shiftCounts = {};
+            let vacCount = 0;
+            g.range.forEach(di => {
+                const val = document.getElementById(`cell-${pi}-${di}`)?.value;
+                if (val === 'VACATION') vacCount++;
+                else if (val && val !== 'OFF') {
+                    shiftCounts[val] = (shiftCounts[val] || 0) + 1;
+                }
+            });
+            
+            let isVac = vacCount > 0;
+            let dominantShiftId = null;
+            let maxCount = 0;
+            for (const [id, count] of Object.entries(shiftCounts)) {
+                if (count > maxCount) { maxCount = count; dominantShiftId = id; }
+            }
+            
+            let assignedShift = shifts.find(s => s.id == dominantShiftId);
+            let shiftIndex = assignedShift ? daySortedShifts.findIndex(s => s.id == assignedShift.id) : -1;
+            
+            if(shiftIndex >= 5) shiftIndex = 4;
+            
+            for (let i = 0; i < 5; i++) {
+                let colStart = 3 + i*2;
+                let colEnd = 4 + i*2;
+                let cStart = row.getCell(colStart);
+                let cEnd = row.getCell(colEnd);
+                
+                if (assignedShift && i === shiftIndex) {
+                    cStart.value = `${assignedShift.startHour}:00 ${assignedShift.startPeriod}`;
+                    cEnd.value = `${assignedShift.endHour}:00 ${assignedShift.endPeriod}`;
+                    cStart.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9EAD3'} }; 
+                    cEnd.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9EAD3'} };
+                } else {
+                    cStart.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:bgColor} }; 
+                    cEnd.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:bgColor} };
+                }
+            }
+            
+            row.getCell(1).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:bgColor} };
+            row.getCell(2).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:bgColor} };
+            row.getCell(13).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:bgColor} };
+            
+            if (isVac) {
+                row.getCell(13).value = 'اجازة';
+                for(let c=2; c<=13; c++) {
+                    row.getCell(c).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFF4CCCC'} };
+                    row.getCell(c).font = {color: {argb: 'FFCC0000'}, bold: true};
+                }
+            }
+            
+            row.eachCell({includeEmpty: true}, c => { 
+                c.alignment = centerAlign; 
+                c.border = borderAll; 
+            });
+            currentRow++;
+        });
+        
+        if (currentRow > startRow) {
+            sheet.mergeCells(`A${startRow}:A${currentRow - 1}`);
+            sheet.getCell(`A${startRow}`).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            sheet.getCell(`A${startRow}`).font = {bold: true};
+        }
+        
+        // Add thick bottom border to the last row of this group to visually separate it from the next
+        let lastGroupRow = sheet.getRow(currentRow - 1);
+        for (let col = 1; col <= 13; col++) {
+            let c = lastGroupRow.getCell(col);
+            c.border = {
+                top: {style:'thin'},
+                left: {style:'thin'},
+                right: {style:'thin'},
+                bottom: {style:'medium'} // Thicker border
+            };
+        }
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `${Date.now()}_Weekly_Duty_Planner.xlsx`);
+    showToast("✅ Excel Exported Successfully!", "success");
+}
+
 
 async function exportAsPDF() {
     const el = document.getElementById('scheduleDisplay');
