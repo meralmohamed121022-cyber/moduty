@@ -434,18 +434,29 @@ function openFacebook() { window.open("https://www.facebook.com/share/1Ghv7eEw6A
     <p style="color:#64748b; margin-bottom: 20px;">Search by Pharmacy Number or use your Quick List.</p>
     
     <div class="sup-input-group" style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; align-items:center;">
-        <div style="display:flex; gap:8px; align-items:center; background:#f8fafc; padding:6px 10px; border-radius:12px; border:1px solid #e2e8f0;">
-            <input type="number" id="supSearchPNo" placeholder="Pharmacy #" style="width:120px; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-weight:700;">
-            <input type="date" id="supSearchDate" style="padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-weight:700;">
-            <button class="btn btn-primary" onclick="supervisorFetchSchedule()" style="padding:10px 18px; border-radius:8px; font-weight:800;">🔍 Fetch Single</button>
+        <!-- Single Pharmacy Section -->
+        <div style="display:flex; gap:8px; align-items:center; background:#f8fafc; padding:8px 12px; border-radius:12px; border:1px solid #e2e8f0;">
+            <input type="number" id="supSearchPNo" placeholder="Pharmacy #" style="width:110px; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-weight:700;">
+            <button class="btn btn-primary" onclick="supervisorFetchSchedule()" style="padding:10px 16px; border-radius:8px; font-weight:800; font-size:13px;">🔍 Fetch Single</button>
         </div>
-        <div style="display:flex; gap:8px; align-items:center; background:linear-gradient(135deg, rgba(139,92,246,0.08), rgba(99,102,241,0.08)); padding:6px 10px; border-radius:12px; border:1.5px solid #a855f7;">
-            <select id="supCombinedScope" style="padding:10px 12px; border-radius:8px; border:1px solid #c084fc; font-weight:700; color:#581c87; background:white;">
+
+        <!-- Date Range Filter Section -->
+        <div style="display:flex; gap:8px; align-items:center; background:#f8fafc; padding:8px 12px; border-radius:12px; border:1px solid #e2e8f0; flex-wrap:wrap;">
+            <span style="font-size:12px; font-weight:800; color:#475569;">📅 من (From):</span>
+            <input type="date" id="supDateFrom" title="من تاريخ (اختياري)" style="padding:9px 10px; border-radius:8px; border:1px solid #cbd5e1; font-weight:700; font-size:12px;">
+            <span style="font-size:12px; font-weight:800; color:#475569;">إلى (To):</span>
+            <input type="date" id="supDateTo" title="إلى تاريخ (اختياري)" style="padding:9px 10px; border-radius:8px; border:1px solid #cbd5e1; font-weight:700; font-size:12px;">
+            <button type="button" onclick="clearDateRange()" title="مسح التواريخ" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:6px 10px; cursor:pointer; font-size:11px; font-weight:700; color:#64748b;">✖ مسح</button>
+        </div>
+
+        <!-- Scope & Show Button -->
+        <div style="display:flex; gap:8px; align-items:center; background:linear-gradient(135deg, rgba(139,92,246,0.08), rgba(99,102,241,0.08)); padding:8px 12px; border-radius:12px; border:1.5px solid #a855f7;">
+            <select id="supCombinedScope" style="padding:9px 12px; border-radius:8px; border:1px solid #c084fc; font-weight:700; color:#581c87; background:white; font-size:12px;">
                 <option value="monitored">⭐ صيدليات قائمتي (My Quick List)</option>
                 <option value="all">🌐 كل الصيدليات بالنظام (All Pharmacies)</option>
             </select>
-            <button class="btn" onclick="supervisorFetchCombinedSchedule()" style="background:linear-gradient(135deg, #8b5cf6, #6d28d9); color:white; padding:10px 20px; border-radius:8px; font-weight:900; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 14px rgba(139,92,246,0.35); border:none; cursor:pointer;">
-                <span style="font-size:18px;">🌐</span> Show
+            <button class="btn" onclick="supervisorFetchCombinedSchedule()" style="background:linear-gradient(135deg, #8b5cf6, #6d28d9); color:white; padding:9px 20px; border-radius:8px; font-weight:900; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(139,92,246,0.35); border:none; cursor:pointer; font-size:13px;">
+                <span style="font-size:16px;">🌐</span> Show
             </button>
         </div>
     </div>
@@ -672,9 +683,10 @@ async function processCloudLogin() {
             if (!data) {
                 const { error: insErr } = await _supabase.from('pharmacy_accounts').insert([{ pharmacy_id: pNo, password: pId }]);
                 if(insErr) throw insErr;
-                data = { pharmacy_id: pNo, supervisor_name: "" }; // تعديل: بدون MONO
+                data = { pharmacy_id: pNo };
             }
-            saveSession({ id: pNo, role: 'pharmacy', supName: data.supervisor_name || '' }); // تعديل: تسجيل الفراغ كقيمة افتراضية
+            let savedChoice = localStorage.getItem('mono_chosen_sup_' + pNo) || '';
+            saveSession({ id: pNo, role: 'pharmacy', supName: savedChoice });
         } else {
             const user = document.getElementById('authSupUser').value;
             const pass = document.getElementById('authSupPass').value;
@@ -715,20 +727,27 @@ function launchApp() {
         document.getElementById('sendToSupervisorBtn').style.display = 'none';
         renderSupervisorPharmacies();
     } else {
-        let initSupHtml = activeSession.supName ? `<div style="margin-top:10px;"><span style="font-size:13px; color:#fff; background:linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,88,12,0.2)); padding:6px 16px; border-radius:20px; font-weight:800; border:1px solid #f59e0b; box-shadow:0 4px 15px rgba(245,158,11,0.3); display:inline-block;"><i style="font-style:normal;">👮</i> Supervisor: Dr. ${activeSession.supName.toUpperCase()}</span></div>` : `<div style="margin-top:10px;"><span style="font-size:12px; color:#fca5a5; background:rgba(239,68,68,0.2); padding:4px 12px; border-radius:16px; font-weight:800; border:1px solid rgba(239,68,68,0.5); display:inline-block;">⚠️ No Supervisor Assigned</span></div>`;
-        document.getElementById('displayRoleInfo').innerHTML = `<div style="font-size:1.3rem; font-weight:900; color:#f8fafc; letter-spacing:1px;">PHARMACY: #${activeSession.id}</div> ${initSupHtml}`;
+        let savedSup = localStorage.getItem('mono_chosen_sup_' + activeSession.id) || activeSession.supName || '';
+        if (savedSup) activeSession.supName = savedSup;
+
+        renderPharmacySupervisorHeader();
+
         document.getElementById('pharmacyNo').value = activeSession.id;
         pharmacyNumber = activeSession.id;
         
         let pidInt = parseInt(activeSession.id);
-        _supabase.from('supervisor_accounts').select('username').contains('managed_pharmacies', [pidInt]).single().then(({data}) => {
-            if(data && data.username && data.username.toUpperCase() !== 'MONO') {
-                activeSession.supName = data.username;
-                localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
+        _supabase.from('supervisor_accounts').select('username').contains('managed_pharmacies', [pidInt]).then(({ data, error }) => {
+            if (error) console.error("Error fetching supervisors:", error);
+            
+            let sups = [];
+            if (data && Array.isArray(data)) {
+                sups = [...new Set(data.map(d => d.username ? d.username.trim() : '').filter(Boolean))];
             }
-            let asyncSupHtml = activeSession.supName ? `<div style="margin-top:10px;"><span style="font-size:13px; color:#fff; background:linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,88,12,0.2)); padding:6px 16px; border-radius:20px; font-weight:800; border:1px solid #f59e0b; box-shadow:0 4px 15px rgba(245,158,11,0.3); display:inline-block;"><i style="font-style:normal;">👮</i> Supervisor: Dr. ${activeSession.supName.toUpperCase()}</span></div>` : `<div style="margin-top:10px;"><span style="font-size:12px; color:#fca5a5; background:rgba(239,68,68,0.2); padding:4px 12px; border-radius:16px; font-weight:800; border:1px solid rgba(239,68,68,0.5); display:inline-block;">⚠️ No Supervisor Assigned</span></div>`;
-            document.getElementById('displayRoleInfo').innerHTML = `<div style="font-size:1.3rem; font-weight:900; color:#f8fafc; letter-spacing:1px;">PHARMACY: #${activeSession.id}</div> ${asyncSupHtml}`;
-        }).catch(e => console.log(e));
+            renderPharmacySupervisorHeader(sups);
+        }).catch(e => {
+            console.error("Supervisor query error:", e);
+            renderPharmacySupervisorHeader([]);
+        });
         
         document.getElementById('manualPharmacistCount').value = "4";
         updatePharmacistCount();
@@ -736,6 +755,80 @@ function launchApp() {
         renderDaySorter();
     }
 }
+
+function renderPharmacySupervisorHeader(sups = null) {
+    const roleContainer = document.getElementById('displayRoleInfo');
+    if (!roleContainer) return;
+    
+    // Initial fast render before Supabase query completes
+    if (sups === null) {
+        let initSupHtml = activeSession.supName 
+            ? `<div style="margin-top:10px;"><span style="font-size:13px; color:#fff; background:linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,88,12,0.2)); padding:6px 16px; border-radius:20px; font-weight:800; border:1px solid #f59e0b; box-shadow:0 4px 15px rgba(245,158,11,0.3); display:inline-block;"><i style="font-style:normal;">👮</i> Supervisor: Dr. ${activeSession.supName.toUpperCase()}</span></div>` 
+            : `<div style="margin-top:10px;"><span style="font-size:12px; color:#fca5a5; background:rgba(239,68,68,0.2); padding:4px 12px; border-radius:16px; font-weight:800; border:1px solid rgba(239,68,68,0.5); display:inline-block;">⚠️ Checking Supervisor...</span></div>`;
+        roleContainer.innerHTML = `<div style="font-size:1.3rem; font-weight:900; color:#f8fafc; letter-spacing:1px;">PHARMACY: #${activeSession.id}</div> ${initSupHtml}`;
+        return;
+    }
+
+    let supContent = '';
+    if (sups.length === 0) {
+        activeSession.supName = "";
+        localStorage.removeItem('mono_chosen_sup_' + activeSession.id);
+        localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
+        supContent = `<div style="margin-top:10px;"><span style="font-size:12px; color:#fca5a5; background:rgba(239,68,68,0.2); padding:4px 12px; border-radius:16px; font-weight:800; border:1px solid rgba(239,68,68,0.5); display:inline-block;">⚠️ No Supervisor Assigned</span></div>`;
+    } else if (sups.length === 1) {
+        activeSession.supName = sups[0];
+        localStorage.setItem('mono_chosen_sup_' + activeSession.id, sups[0]);
+        localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
+        supContent = `<div style="margin-top:10px;"><span style="font-size:13px; color:#fff; background:linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,88,12,0.2)); padding:6px 16px; border-radius:20px; font-weight:800; border:1px solid #f59e0b; box-shadow:0 4px 15px rgba(245,158,11,0.3); display:inline-block;"><i style="font-style:normal;">👮</i> Supervisor: Dr. ${activeSession.supName.toUpperCase()}</span></div>`;
+    } else {
+        // Multiple supervisors found - render an interactive selector
+        let chosen = localStorage.getItem('mono_chosen_sup_' + activeSession.id);
+        if (!chosen || !sups.includes(chosen)) {
+            chosen = (activeSession.supName && sups.includes(activeSession.supName)) ? activeSession.supName : sups[0];
+        }
+        activeSession.supName = chosen;
+        localStorage.setItem('mono_chosen_sup_' + activeSession.id, chosen);
+        localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
+
+        supContent = `
+            <div style="margin-top:10px; display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(245,158,11,0.25), rgba(234,88,12,0.25)); padding:6px 16px; border-radius:20px; border:1px solid #f59e0b; box-shadow:0 4px 15px rgba(245,158,11,0.3);">
+                <span style="font-size:13px; color:#fff; font-weight:800; display:flex; align-items:center; gap:4px;">
+                    <i style="font-style:normal;">👮</i> Supervisor:
+                </span>
+                <select id="pharmacySupervisorSelect" onchange="onPharmacySupervisorChange(this.value)" style="background:#1e293b; color:#fbbf24; border:1px solid #f59e0b; border-radius:10px; padding:4px 12px; font-weight:800; font-size:13px; outline:none; cursor:pointer;">
+                    ${sups.map(s => `<option value="${s}" ${s === activeSession.supName ? 'selected' : ''}>Dr. ${s.toUpperCase()}</option>`).join('')}
+                </select>
+            </div>
+        `;
+    }
+    roleContainer.innerHTML = `<div style="font-size:1.3rem; font-weight:900; color:#f8fafc; letter-spacing:1px;">PHARMACY: #${activeSession.id}</div> ${supContent}`;
+    
+    // Update footer supervisor name if schedule table is already generated
+    const supDisplaySpan = document.getElementById('tableSupervisorNameDisplay');
+    if (supDisplaySpan) {
+        supDisplaySpan.innerText = activeSession.supName ? `Dr. ${activeSession.supName.toUpperCase()}` : '';
+        supDisplaySpan.style.display = activeSession.supName ? 'inline' : 'none';
+    }
+}
+
+window.onPharmacySupervisorChange = function(newSup) {
+    if (!newSup || activeSession.role !== 'pharmacy') return;
+    activeSession.supName = newSup;
+    localStorage.setItem('mono_chosen_sup_' + activeSession.id, newSup);
+    localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
+    
+    const supDisplaySpan = document.getElementById('tableSupervisorNameDisplay');
+    if (supDisplaySpan) {
+        supDisplaySpan.innerText = `Dr. ${newSup.toUpperCase()}`;
+        supDisplaySpan.style.display = 'inline';
+    } else {
+        const scheduleDisplay = document.getElementById('scheduleDisplay');
+        if (scheduleDisplay && scheduleDisplay.innerHTML.trim() !== '') {
+            generateTimeBasedScheduleTables();
+        }
+    }
+    showToast(`Supervisor set to Dr. ${newSup.toUpperCase()}`, "success");
+};
 
 /* ========================================================================
    2️⃣ SUPERVISOR LOGIC & DATE HELPERS
@@ -769,10 +862,31 @@ function getWeekOfMonthEn(dateString) {
     return `Week ${weekNum} of ${month} ${year}`;
 }
 
+function formatAppDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            if (parts[0].length === 4) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            return dateStr;
+        }
+    } catch(e) {}
+    return dateStr;
+}
+
+function clearDateRange() {
+    const d1 = document.getElementById('supDateFrom');
+    const d2 = document.getElementById('supDateTo');
+    if (d1) d1.value = '';
+    if (d2) d2.value = '';
+    showToast("تم مسح نطاق التواريخ", "info");
+}
+
 async function supervisorFetchSchedule() {
     window.isCombinedViewActive = false;
     const pNo = document.getElementById('supSearchPNo').value;
-    const rawDate = document.getElementById('supSearchDate').value;
+    const dateFrom = document.getElementById('supDateFrom') ? document.getElementById('supDateFrom').value : '';
+    const dateTo = document.getElementById('supDateTo') ? document.getElementById('supDateTo').value : '';
     if (!pNo) return showToast("Please enter a Pharmacy Number!", "error");
 
     document.getElementById('scheduleDisplay').innerHTML = "<h3 style='text-align:center; color:#0891b2; margin:40px 0;'>⏳ Fetching Live Schedule from Cloud...</h3>";
@@ -780,84 +894,145 @@ async function supervisorFetchSchedule() {
     
     let query = _supabase.from('pharmacy_schedules').select('*').eq('pharmacy_id', pNo).order('created_at', { ascending: false });
     
-    if (rawDate) {
-        const satDate = getSaturdayOfWeek(rawDate);
+    if (dateFrom && !dateTo) {
+        const satDate = getSaturdayOfWeek(dateFrom);
         query = query.eq('week_start_date', satDate);
     }
     
-    const { data, error } = await query.limit(1).single();
+    const { data: scheds, error } = await query;
 
-    if (data && data.data) {
-        restoreEnvironmentQuietly(data.data, pNo, data.week_start_date);
-        setTimeout(() => { generateTimeBasedScheduleTables(true, activeSession.id); showToast("Schedule Loaded!", "success"); }, 300);
+    if (scheds && scheds.length > 0) {
+        let chosen = scheds[0];
+        let isFallback = false;
+        if (dateFrom && dateTo) {
+            const match = scheds.find(s => {
+                const w = s.week_start_date || '';
+                const c = (s.created_at || '').split('T')[0];
+                return (w >= dateFrom && w <= dateTo) || (c >= dateFrom && c <= dateTo);
+            });
+            if (match) {
+                chosen = match;
+            } else {
+                chosen = scheds[0];
+                isFallback = true;
+            }
+        }
+        
+        restoreEnvironmentQuietly(chosen.data, pNo, chosen.week_start_date);
+        setTimeout(() => {
+            generateTimeBasedScheduleTables(true, activeSession.id);
+            if (isFallback) {
+                showToast(`⚠️ لا يوجد جدول بالنطاق المطلوب، تم عرض آخر جدول مسجل بتاريخ: ${formatAppDate(chosen.week_start_date)}`, "warning");
+            } else {
+                showToast("Schedule Loaded!", "success");
+            }
+        }, 300);
     } else {
-        const dateMsg = rawDate ? ` for ${getWeekOfMonthEn(getSaturdayOfWeek(rawDate))}` : ``;
+        const dateMsg = dateFrom ? ` for range` : ``;
         document.getElementById('scheduleDisplay').innerHTML = `<div style="text-align:center; padding:40px; background:#fee2e2; border-radius:15px; color:#b91c1c;"><h3>❌ No schedule found for Pharmacy #${pNo}${dateMsg}</h3></div>`;
     }
 }
-
 
 window.isCombinedViewActive = false;
 window.currentCombinedData = null;
 
 async function supervisorFetchCombinedSchedule() {
     const scope = document.getElementById('supCombinedScope') ? document.getElementById('supCombinedScope').value : 'monitored';
-    const rawDate = document.getElementById('supSearchDate') ? document.getElementById('supSearchDate').value : '';
+    let dateFrom = document.getElementById('supDateFrom') ? document.getElementById('supDateFrom').value : '';
+    let dateTo = document.getElementById('supDateTo') ? document.getElementById('supDateTo').value : '';
+    
+    if (dateFrom && !dateTo) dateTo = dateFrom;
+    if (!dateFrom && dateTo) dateFrom = dateTo;
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+        const tmp = dateFrom; dateFrom = dateTo; dateTo = tmp;
+    }
+
+    const hasRange = Boolean(dateFrom && dateTo);
     
     const display = document.getElementById('scheduleDisplay');
     display.innerHTML = `
         <div style="text-align:center; padding:50px 20px;">
             <div style="font-size:42px; margin-bottom:15px;">⏳</div>
             <h3 style="color:#0891b2; font-weight:800; font-size:1.35rem;">جاري جلب وتجميع جداول الصيدليات من السحابة...</h3>
-            <p style="color:#64748b; font-size:13px; margin-top:6px;">يتم الآن قراءة أحدث الجداول المعتمدة وترتيب المداومين والإجازات</p>
+            <p style="color:#64748b; font-size:13px; margin-top:6px;">${hasRange ? `يتم التدقيق في النطاق المحدد من ${formatAppDate(dateFrom)} إلى ${formatAppDate(dateTo)}` : 'يتم جلب أحدث الجداول المعتمدة'}</p>
         </div>
     `;
     document.getElementById('actionFooter').style.display = 'none';
 
     try {
         let managedList = (activeSession && activeSession.info && activeSession.info.managed_pharmacies) ? activeSession.info.managed_pharmacies : [];
-        
-        let query = _supabase.from('pharmacy_schedules').select('*').order('created_at', { ascending: false });
-        
-        let satDate = "";
-        if (rawDate) {
-            satDate = getSaturdayOfWeek(rawDate);
-            query = query.eq('week_start_date', satDate);
-        }
 
-        const { data: allScheds, error } = await query;
+        // Fetch all schedules ordered by created_at desc (newest first)
+        const { data: allScheds, error } = await _supabase
+            .from('pharmacy_schedules')
+            .select('*')
+            .order('created_at', { ascending: false });
+
         if (error) throw error;
         if (!allScheds || allScheds.length === 0) {
-            const dateMsg = rawDate ? ` لأسبوع ${rawDate}` : ``;
-            display.innerHTML = `<div style="text-align:center; padding:40px; background:#fee2e2; border-radius:15px; color:#b91c1c;"><h3>❌ لا توجد أي جداول محفوظة في النظام${dateMsg}</h3></div>`;
+            display.innerHTML = `<div style="text-align:center; padding:40px; background:#fee2e2; border-radius:15px; color:#b91c1c;"><h3>❌ لا توجد أي جداول محفوظة في النظام</h3></div>`;
             return;
         }
 
-        // Group by pharmacy_id and take the latest schedule for each pharmacy
-        const latestPerPhar = new Map();
-        for (const s of allScheds) {
-            const pid = parseInt(s.pharmacy_id);
-            if (!latestPerPhar.has(pid)) {
-                latestPerPhar.set(pid, s);
-            }
-        }
-
-        // Filter based on selected scope
-        let targetList = [];
+        // Determine all target pharmacy IDs to inspect
+        let targetPharmacyIds = [];
         if (scope === 'monitored' && managedList.length > 0) {
-            managedList.forEach(mId => {
-                const s = latestPerPhar.get(parseInt(mId));
-                if (s) targetList.push(s);
-            });
-            if (targetList.length === 0) {
-                showToast("لم نجد جداول لصيدليات قائمتك، يتم عرض جميع الصيدليات المسجلة", "info");
-                targetList = Array.from(latestPerPhar.values());
-            }
+            targetPharmacyIds = managedList.map(id => parseInt(id));
         } else {
-            targetList = Array.from(latestPerPhar.values());
+            targetPharmacyIds = [...new Set(allScheds.map(s => parseInt(s.pharmacy_id)))];
         }
+        targetPharmacyIds.sort((a, b) => a - b);
 
-        targetList.sort((a, b) => parseInt(a.pharmacy_id) - parseInt(b.pharmacy_id));
+        let targetList = [];
+        let inRangeCount = 0;
+        let fallbackCount = 0;
+
+        for (const pId of targetPharmacyIds) {
+            const phScheds = allScheds.filter(s => parseInt(s.pharmacy_id) === pId);
+            if (phScheds.length === 0) continue;
+
+            let chosenRecord = null;
+            let isInRange = false;
+
+            if (hasRange) {
+                // Find latest schedule within [dateFrom, dateTo]
+                const matchInRange = phScheds.find(s => {
+                    const w = s.week_start_date || '';
+                    const c = (s.created_at || '').split('T')[0];
+                    return (w >= dateFrom && w <= dateTo) || (c >= dateFrom && c <= dateTo);
+                });
+
+                if (matchInRange) {
+                    chosenRecord = matchInRange;
+                    isInRange = true;
+                    inRangeCount++;
+                } else {
+                    // Fallback to latest available schedule!
+                    chosenRecord = phScheds[0];
+                    isInRange = false;
+                    fallbackCount++;
+                }
+            } else {
+                chosenRecord = phScheds[0];
+                isInRange = true;
+                inRangeCount++;
+            }
+
+            if (chosenRecord) {
+                const actualWeekDate = chosenRecord.week_start_date || (chosenRecord.created_at || '').split('T')[0];
+                const actualCreatedDate = (chosenRecord.created_at || '').split('T')[0];
+                
+                targetList.push({
+                    ...chosenRecord,
+                    isInRange: isInRange,
+                    hasRangeFilter: hasRange,
+                    rangeFrom: dateFrom,
+                    rangeTo: dateTo,
+                    exactWeekDate: actualWeekDate,
+                    exactCreatedDate: actualCreatedDate
+                });
+            }
+        }
 
         if (targetList.length === 0) {
             display.innerHTML = `<div style="text-align:center; padding:40px; background:#fee2e2; border-radius:15px; color:#b91c1c;"><h3>❌ لم يتم العثور على جداول لعرضها</h3></div>`;
@@ -867,13 +1042,22 @@ async function supervisorFetchCombinedSchedule() {
         window.isCombinedViewActive = true;
         window.currentCombinedData = {
             records: targetList,
-            weekDate: satDate || targetList[0].week_start_date || new Date().toISOString().split('T')[0],
+            hasRange: hasRange,
+            dateFrom: dateFrom,
+            dateTo: dateTo,
+            inRangeCount: inRangeCount,
+            fallbackCount: fallbackCount,
             supervisor: (activeSession && activeSession.id) ? activeSession.id : "MONO"
         };
 
         renderCombinedSchedule(window.currentCombinedData);
         document.getElementById('actionFooter').style.display = 'block';
-        showToast(`✨ تم عرض الجدول المدمج لـ ${targetList.length} صيدلية بنجاح!`, "success");
+
+        let toastMsg = `✨ تم عرض الجدول المدمج لـ ${targetList.length} صيدلية بنجاح!`;
+        if (hasRange && fallbackCount > 0) {
+            toastMsg += ` (${fallbackCount} صيدلية خارج النطاق وعُرض آخر جدول مسجل)`;
+        }
+        showToast(toastMsg, fallbackCount > 0 ? "warning" : "success");
 
     } catch (err) {
         console.error("Combined Schedule Error:", err);
@@ -886,8 +1070,13 @@ function renderCombinedSchedule(combinedData) {
     display.innerHTML = '';
 
     const records = combinedData.records;
-    const baseWeekDate = combinedData.weekDate;
+    const hasRange = combinedData.hasRange;
+    const dateFrom = combinedData.dateFrom;
+    const dateTo = combinedData.dateTo;
+    const inRangeCount = combinedData.inRangeCount || 0;
+    const fallbackCount = combinedData.fallbackCount || 0;
     
+    const baseWeekDate = records[0].exactWeekDate || new Date().toISOString().split('T')[0];
     let baseDateObj = new Date(baseWeekDate);
     if (isNaN(baseDateObj.getTime())) baseDateObj = new Date();
 
@@ -913,18 +1102,30 @@ function renderCombinedSchedule(combinedData) {
                     <h2 style="margin:0; font-size:2.2rem; font-weight:900; background:linear-gradient(135deg, #ffffff, #f59e0b); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">
                         All Monitored Pharmacies Schedule
                     </h2>
-                    <p style="margin:5px 0 0 0; color:#94a3b8; font-size:14px; font-weight:600;">
+                    <p style="margin:6px 0 0 0; color:#94a3b8; font-size:14px; font-weight:600;">
                         المشرف: <span style="color:#f59e0b; font-weight:800;">Dr. ${supName}</span> | 
-                        الأسبوع: <span style="color:#e2e8f0;">${getWeekOfMonthEn(baseWeekDate)}</span>
+                        ${hasRange ? `النطاق المحدد: <span style="color:#38bdf8; font-weight:800;">من ${formatAppDate(dateFrom)} إلى ${formatAppDate(dateTo)}</span>` : `الأسبوع: <span style="color:#e2e8f0;">${getWeekOfMonthEn(baseWeekDate)}</span>`}
                     </p>
                 </div>
-                <div style="display:flex; gap:12px; flex-wrap:wrap;">
-                    <div style="background:rgba(255,255,255,0.06); padding:10px 18px; border-radius:16px; border:1px solid rgba(255,255,255,0.1); text-align:center;">
-                        <div style="font-size:1.6rem; font-weight:900; color:#38bdf8;">${records.length}</div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <div style="background:rgba(255,255,255,0.06); padding:10px 16px; border-radius:16px; border:1px solid rgba(255,255,255,0.1); text-align:center;">
+                        <div style="font-size:1.5rem; font-weight:900; color:#38bdf8;">${records.length}</div>
                         <div style="font-size:11px; color:#94a3b8; font-weight:700;">صيدلية مدمجة</div>
                     </div>
-                    <div style="background:rgba(255,255,255,0.06); padding:10px 18px; border-radius:16px; border:1px solid rgba(255,255,255,0.1); text-align:center;">
-                        <div style="font-size:1.6rem; font-weight:900; color:#22c55e;">${totalPharmacistsOverall}</div>
+                    ${hasRange ? `
+                    <div style="background:rgba(34,197,94,0.1); padding:10px 16px; border-radius:16px; border:1px solid rgba(34,197,94,0.3); text-align:center;">
+                        <div style="font-size:1.5rem; font-weight:900; color:#4ade80;">${inRangeCount}</div>
+                        <div style="font-size:11px; color:#86efac; font-weight:700;">ضمن النطاق</div>
+                    </div>
+                    ${fallbackCount > 0 ? `
+                    <div style="background:rgba(239,68,68,0.1); padding:10px 16px; border-radius:16px; border:1.5px solid rgba(239,68,68,0.4); text-align:center;">
+                        <div style="font-size:1.5rem; font-weight:900; color:#f87171;">${fallbackCount}</div>
+                        <div style="font-size:11px; color:#fca5a5; font-weight:800;">خارج النطاق (آخر جدول)</div>
+                    </div>
+                    ` : ''}
+                    ` : ''}
+                    <div style="background:rgba(255,255,255,0.06); padding:10px 16px; border-radius:16px; border:1px solid rgba(255,255,255,0.1); text-align:center;">
+                        <div style="font-size:1.5rem; font-weight:900; color:#fbbf24;">${totalPharmacistsOverall}</div>
                         <div style="font-size:11px; color:#94a3b8; font-weight:700;">إجمالي الصيادلة</div>
                     </div>
                 </div>
@@ -1028,16 +1229,35 @@ function renderCombinedSchedule(combinedData) {
                 dayRowsHtml += `
                     <tr>
                         ${isFirst ? `
-                        <td rowspan="${rowCount}" style="background:#f8fafc; vertical-align:middle; text-align:center; padding:15px; border-right:2px solid #e2e8f0; border-bottom:2px solid #cbd5e1; width:22%;">
+                        <td rowspan="${rowCount}" style="background:#f8fafc; vertical-align:middle; text-align:center; padding:15px; border-right:2px solid #e2e8f0; border-bottom:2px solid #cbd5e1; width:26%;">
                             <div style="font-size:1.2rem; font-weight:900; color:#0284c7; display:inline-flex; align-items:center; gap:6px; background:#e0f2fe; padding:6px 14px; border-radius:12px; border:1px solid #bae6fd;">
                                 💊 Pharmacy #${pId}
                             </div>
-                            <div style="font-size:11px; color:#64748b; font-weight:700; margin-top:6px;">
+                            
+                            ${pRec.hasRangeFilter ? (
+                                pRec.isInRange ? `
+                                    <div style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800; margin-top:6px; line-height:1.4;">
+                                        ✅ ضمن النطاق المحدد<br>
+                                        <span style="font-size:10px; color:#166534;">أسبوع: ${formatAppDate(pRec.exactWeekDate)}</span>
+                                    </div>
+                                ` : `
+                                    <div style="background:#fee2e2; color:#b91c1c; border:1.5px solid #f87171; padding:5px 8px; border-radius:8px; font-size:11px; font-weight:800; margin-top:6px; line-height:1.4; box-shadow:0 2px 6px rgba(239,68,68,0.15);">
+                                        ⚠️ لا يوجد في النطاق المحدد<br>
+                                        <span style="font-size:11px; color:#991b1b; font-weight:900;">آخر جدول متوفر: ${formatAppDate(pRec.exactWeekDate)}</span>
+                                    </div>
+                                `
+                            ) : `
+                                <div style="font-size:11px; color:#64748b; font-weight:700; margin-top:6px;">
+                                    📅 أسبوع: ${formatAppDate(pRec.exactWeekDate)}
+                                </div>
+                            `}
+                            
+                            <div style="font-size:10px; color:#94a3b8; font-weight:700; margin-top:4px;">
                                 ${pRec.schedule_name ? pRec.schedule_name : 'الدوام الأساسي'}
                             </div>
                         </td>
                         ` : ''}
-                        <td style="background:#ffffff; padding:12px 18px; vertical-align:middle; width:38%; ${bottomBorder}">
+                        <td style="background:#ffffff; padding:12px 18px; vertical-align:middle; width:36%; ${bottomBorder}">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <strong style="font-size:14px; color:#1e293b; font-weight:800;">${p.name}</strong>
                                 <span style="font-size:11px; padding:2px 8px; border-radius:10px; font-weight:700; ${p.isVac ? 'background:#ffedd5; color:#ea580c;' : (p.isOff ? 'background:#f1f5f9; color:#94a3b8;' : 'background:#e0f2fe; color:#0284c7;')}">
@@ -1045,7 +1265,7 @@ function renderCombinedSchedule(combinedData) {
                                 </span>
                             </div>
                         </td>
-                        <td style="background:${p.color}; color:white; font-weight:800; font-size:13px; text-align:center; vertical-align:middle; padding:12px 18px; width:40%; text-shadow:0 1px 2px rgba(0,0,0,0.25); ${bottomBorder}">
+                        <td style="background:${p.color}; color:white; font-weight:800; font-size:13px; text-align:center; vertical-align:middle; padding:12px 18px; width:38%; text-shadow:0 1px 2px rgba(0,0,0,0.25); ${bottomBorder}">
                             ${p.timeStr}
                         </td>
                     </tr>
@@ -1082,9 +1302,9 @@ function renderCombinedSchedule(combinedData) {
                     <table class="display-table" style="margin:0; width:100%; border-collapse:collapse;">
                         <thead>
                             <tr style="background:#f1f5f9; color:#475569; font-size:12px; text-transform:uppercase; letter-spacing:0.5px;">
-                                <th style="width:22%; text-align:center; padding:12px 14px; border-bottom:2px solid #cbd5e1;">PHARMACY / الصيدلية</th>
-                                <th style="width:38%; text-align:right; padding:12px 18px; border-bottom:2px solid #cbd5e1;">PHARMACIST / الصيدلي</th>
-                                <th style="width:40%; text-align:center; padding:12px 14px; border-bottom:2px solid #cbd5e1;">DUTY SHIFT / وقت الدوام</th>
+                                <th style="width:26%; text-align:center; padding:12px 14px; border-bottom:2px solid #cbd5e1;">PHARMACY / الصيدلية</th>
+                                <th style="width:36%; text-align:right; padding:12px 18px; border-bottom:2px solid #cbd5e1;">PHARMACIST / الصيدلي</th>
+                                <th style="width:38%; text-align:center; padding:12px 14px; border-bottom:2px solid #cbd5e1;">DUTY SHIFT / وقت الدوام</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1151,7 +1371,6 @@ async function addPharmacyToMonitor() {
     let list = activeSession.info.managed_pharmacies || [];
     if (!list.includes(parseInt(target))) {
         list.push(parseInt(target));
-        await _supabase.from('pharmacy_accounts').update({ supervisor_name: activeSession.id }).eq('pharmacy_id', target);
         await _supabase.from('supervisor_accounts').update({ managed_pharmacies: list }).eq('username', activeSession.id);
         
         activeSession.info.managed_pharmacies = list;
@@ -1679,15 +1898,16 @@ function generateTimeBasedScheduleTables(isSupervisor = false, supName = "", sho
         return;
     }
 
-    // تعديل اللوجيك الديناميكي لاسم المشرف
+    // Dynamic supervisor name display (supports all supervisors including MONO)
     let supervisorName = "";
     if (activeSession.role === 'supervisor') {
         supervisorName = activeSession.id;
     } else {
         supervisorName = activeSession.supName || "";
-        if (supervisorName.toUpperCase() === 'MONO') supervisorName = ""; 
     }
-    let supDisplay = supervisorName ? ` <span style="font-weight:900; color:#06b6d4; margin-left:10px; padding-left:10px; border-left:2px solid #64748b;">Dr. ${supervisorName.toUpperCase()}</span>` : "";
+    let supDisplay = supervisorName 
+        ? ` <span id="tableSupervisorNameDisplay" style="font-weight:900; color:#06b6d4; margin-left:10px; padding-left:10px; border-left:2px solid #64748b;">Dr. ${supervisorName.toUpperCase()}</span>` 
+        : ` <span id="tableSupervisorNameDisplay" style="display:none; font-weight:900; color:#06b6d4; margin-left:10px; padding-left:10px; border-left:2px solid #64748b;"></span>`;
 
     groups.forEach((g, idx) => {
         const headers = g.range.map(i => `<th>${days[i].toUpperCase()}</th>`).join('');
@@ -2071,13 +2291,14 @@ async function exportCombinedAsExcel() {
     if (!window.currentCombinedData || !window.currentCombinedData.records) {
         return showToast("لا توجد بيانات مدمجة للتصدير!", "error");
     }
-    showToast("📊 جاري تصدير الجدول المدمج لإكسيل...", "info");
+    showToast("📊 جاري تصدير الجدول المدمج لإكسيل بنفس ترتيب الأيام والصيدليات...", "info");
     
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Combined Master Duty', {
+    const sheet = workbook.addWorksheet('Master Duty by Days', {
         views: [{ rightToLeft: false, showGridLines: true }]
     });
 
+    // Page Setup strictly for A4 Landscape
     sheet.pageSetup = {
         paperSize: 9, // A4
         orientation: 'landscape',
@@ -2093,51 +2314,85 @@ async function exportCombinedAsExcel() {
         top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
     };
     const centerAlign = { vertical: 'middle', horizontal: 'center' };
+    const leftAlign = { vertical: 'middle', horizontal: 'left' };
 
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
     const createDate = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
     const supName = (activeSession && activeSession.id) ? activeSession.id.toUpperCase() : "MONO";
+    const combinedData = window.currentCombinedData;
+    const records = combinedData.records;
 
+    // A4 Landscape 4 columns totaling 104 width units
     sheet.columns = [
-        { width: 16 }, // Day
-        { width: 14 }, // Date
-        { width: 16 }, // Pharmacy #
-        { width: 22 }, // Pharmacist Name
-        { width: 16 }, // Status
-        { width: 26 }  // Duty Hours
+        { width: 22 }, // Pharmacy
+        { width: 24 }, // Pharmacist Name
+        { width: 28 }, // Duty Shift / Time
+        { width: 30 }  // Status & Date Range Notes
     ];
 
-    // Main Title
-    const r1 = sheet.addRow([`MASTER COMBINED DUTY - SUPERVISOR: DR. ${supName} | Created: ${createDate}`, '', '', '', '', '']);
-    r1.height = 30;
-    sheet.mergeCells('A1:F1');
-    r1.getCell(1).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FF1E293B'} };
+    // Master Banner
+    const rangeText = combinedData.hasRange 
+        ? `Range: ${formatAppDate(combinedData.dateFrom)} to ${formatAppDate(combinedData.dateTo)}`
+        : `All Recent Duty Schedules`;
+
+    const r1 = sheet.addRow([`MASTER COMBINED DUTY SCHEDULE - SUPERVISOR: DR. ${supName}`, '', '', '']);
+    r1.height = 28;
+    sheet.mergeCells('A1:D1');
+    r1.getCell(1).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FF0F172A'} };
     r1.getCell(1).font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
     r1.getCell(1).alignment = centerAlign;
     r1.eachCell(c => c.border = borderAll);
 
-    // Header row
-    const r2 = sheet.addRow(['DAY', 'DATE', 'PHARMACY', 'PHARMACIST', 'STATUS', 'DUTY TIME / SHIFT']);
-    r2.height = 24;
-    r2.eachCell(c => {
-        c.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9EAD3'} };
-        c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF166534' } };
-        c.alignment = centerAlign;
-        c.border = borderAll;
-    });
-
-    const daysEn = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    const baseDateObj = new Date(window.currentCombinedData.weekDate);
+    const r2 = sheet.addRow([`${rangeText} | Total Pharmacies: ${records.length} | Export Date: ${createDate}`, '', '', '']);
+    r2.height = 20;
+    sheet.mergeCells('A2:D2');
+    r2.getCell(1).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FF1E293B'} };
+    r2.getCell(1).font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFF59E0B' } };
+    r2.getCell(1).alignment = centerAlign;
+    r2.eachCell(c => c.border = borderAll);
 
     let currentRow = 3;
-    const records = window.currentCombinedData.records;
+    const daysEn = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const daysAr = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
+    const baseDateObj = new Date(records[0].exactWeekDate || new Date());
 
-    daysEn.forEach((dayName, di) => {
+    daysEn.forEach((dayNameEn, di) => {
+        const dayNameAr = daysAr[di];
         const dayDate = new Date(baseDateObj);
         dayDate.setDate(dayDate.getDate() + di);
         const dayDateStr = `${pad(dayDate.getDate())}-${pad(dayDate.getMonth() + 1)}-${dayDate.getFullYear()}`;
 
+        // Empty row spacer before each day (except row 3)
+        if (currentRow > 3) {
+            const spacer = sheet.addRow(['', '', '', '']);
+            spacer.height = 10;
+            currentRow++;
+        }
+
+        // Day Section Header Row
+        const dayHeaderRow = sheet.addRow([`📅 ${dayNameEn.toUpperCase()} (${dayNameAr}) - ${dayDateStr}`, '', '', '']);
+        dayHeaderRow.height = 26;
+        sheet.mergeCells(`A${currentRow}:D${currentRow}`);
+        const cDay = dayHeaderRow.getCell(1);
+        cDay.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FF1E293B'} };
+        cDay.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FF38BDF8' } };
+        cDay.alignment = centerAlign;
+        dayHeaderRow.eachCell(c => c.border = borderAll);
+        currentRow++;
+
+        // Table Column Headers Row
+        const colHeaderRow = sheet.addRow(['PHARMACY / الصيدلية', 'PHARMACIST / الصيدلي', 'DUTY SHIFT / وقت الدوام', 'STATUS & NOTES / حالة النطاق']);
+        colHeaderRow.height = 22;
+        colHeaderRow.eachCell(c => {
+            c.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9EAD3'} };
+            c.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF166534' } };
+            c.alignment = centerAlign;
+            c.border = borderAll;
+        });
+        currentRow++;
+
+        // Rows for each pharmacy on this day
         records.forEach(pRec => {
             const pId = pRec.pharmacy_id;
             const pData = pRec.data || {};
@@ -2145,55 +2400,121 @@ async function exportCombinedAsExcel() {
             const pShifts = pData.shifts || [];
             const pCells = pData.cells || {};
 
+            let pharList = [];
             pPharmacists.forEach((p, pi) => {
                 const val = pCells[`cell-${pi}-${di}`];
-                let isVac = (val === 'VACATION');
-                let isOff = (!val || val === 'OFF');
-                let shiftText = 'OFF';
-                let statusText = 'OFF';
-                let statusColor = 'FF64748B';
-                let rowBg = (currentRow % 2 === 0) ? 'FFF8FAFC' : 'FFFFFFFF';
-
-                if (isVac) {
-                    statusText = 'VACATION';
-                    shiftText = '🏖️ VACATION';
-                    statusColor = 'FFEA580C';
-                    rowBg = 'FFFFEDD5';
-                } else if (!isOff) {
+                if (val === 'VACATION') {
+                    pharList.push({
+                        name: p.name || `Pharmacist ${pi + 1}`,
+                        badge: '(VACATION)',
+                        timeStr: '🏖️ VACATION',
+                        isVac: true,
+                        isOff: false,
+                        timeScore: 90000
+                    });
+                } else if (val && val !== 'OFF') {
                     const sh = pShifts.find(s => s.id == val);
-                    statusText = 'ON DUTY';
-                    statusColor = 'FF0284C7';
-                    shiftText = sh ? `${sh.startHour}:00 ${sh.startPeriod} - ${sh.endHour}:00 ${sh.endPeriod}` : val;
+                    let timeStr = val;
+                    let timeScore = 50000;
+                    if (sh) {
+                        timeStr = `${sh.startHour}:00 ${sh.startPeriod} - ${sh.endHour}:00 ${sh.endPeriod}`;
+                        let h = sh.startHour;
+                        if (sh.startPeriod === 'PM' && h !== 12) h += 12;
+                        else if (sh.startPeriod === 'AM' && h === 12) h = 0;
+                        timeScore = h * 60 + (sh.startMinute || 0);
+                    }
+                    pharList.push({
+                        name: p.name || `Pharmacist ${pi + 1}`,
+                        badge: '(Shift Base)',
+                        timeStr: timeStr,
+                        isVac: false,
+                        isOff: false,
+                        timeScore: timeScore
+                    });
+                } else {
+                    pharList.push({
+                        name: p.name || `Pharmacist ${pi + 1}`,
+                        badge: '(OFF)',
+                        timeStr: 'OFF',
+                        isVac: false,
+                        isOff: true,
+                        timeScore: 99999
+                    });
                 }
+            });
 
+            pharList.sort((a, b) => a.timeScore - b.timeScore);
+
+            const startPharRow = currentRow;
+            const pharRowCount = Math.max(pharList.length, 1);
+
+            let noteText = '';
+            if (pRec.hasRangeFilter) {
+                if (pRec.isInRange) {
+                    noteText = `ضمن النطاق (أسبوع: ${formatAppDate(pRec.exactWeekDate)})`;
+                } else {
+                    noteText = `⚠️ خارج النطاق (آخر متوفر: ${formatAppDate(pRec.exactWeekDate)})`;
+                }
+            } else {
+                noteText = `أسبوع: ${formatAppDate(pRec.exactWeekDate)}`;
+            }
+
+            pharList.forEach((p, pIdx) => {
                 const row = sheet.addRow([
-                    dayName,
-                    dayDateStr,
-                    `Pharmacy #${pId}`,
-                    p.name || `Pharmacist ${pi + 1}`,
-                    statusText,
-                    shiftText
+                    (pIdx === 0) ? `Pharmacy #${pId}` : '',
+                    `${p.name} ${p.badge}`,
+                    p.timeStr,
+                    (pIdx === 0) ? noteText : ''
                 ]);
                 row.height = 20;
 
-                row.eachCell({ includeEmpty: true }, (c, colNum) => {
-                    c.alignment = centerAlign;
-                    c.border = borderAll;
-                    c.fill = { type: 'pattern', pattern:'solid', fgColor:{argb: rowBg} };
-                    c.font = { name: 'Segoe UI', size: 9.5 };
-                });
+                row.getCell(1).alignment = centerAlign;
+                row.getCell(2).alignment = leftAlign;
+                row.getCell(3).alignment = centerAlign;
+                row.getCell(4).alignment = centerAlign;
 
-                if (isVac) {
-                    row.getCell(5).font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFEA580C' } };
-                    row.getCell(6).font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFEA580C' } };
+                // Color styling
+                if (p.isVac) {
+                    row.getCell(2).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFF4CCCC'} };
+                    row.getCell(2).font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFCC0000' } };
+                    row.getCell(3).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFF4CCCC'} };
+                    row.getCell(3).font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFCC0000' } };
+                } else {
+                    row.getCell(2).font = { name: 'Segoe UI', size: 9.5 };
+                    row.getCell(3).font = { name: 'Segoe UI', size: 9.5, bold: !p.isOff };
+                    if (!p.isOff) {
+                        row.getCell(3).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFD9EAD3'} };
+                    }
                 }
 
+                if (!pRec.isInRange && pRec.hasRangeFilter) {
+                    row.getCell(4).font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFB91C1C' } };
+                    row.getCell(4).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFFEE2E2'} };
+                } else {
+                    row.getCell(4).font = { name: 'Segoe UI', size: 9 };
+                }
+
+                row.eachCell({ includeEmpty: true }, c => c.border = borderAll);
                 currentRow++;
             });
+
+            // Merge Pharmacy cell and Note cell across all pharmacists of this pharmacy
+            if (pharRowCount > 1) {
+                sheet.mergeCells(`A${startPharRow}:A${currentRow - 1}`);
+                sheet.getCell(`A${startPharRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+                sheet.getCell(`A${startPharRow}`).font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF0284C7' } };
+                sheet.getCell(`A${startPharRow}`).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFF8FAFC'} };
+
+                sheet.mergeCells(`D${startPharRow}:D${currentRow - 1}`);
+                sheet.getCell(`D${startPharRow}`).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            } else {
+                sheet.getCell(`A${startPharRow}`).font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF0284C7' } };
+                sheet.getCell(`A${startPharRow}`).fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FFF8FAFC'} };
+            }
         });
     });
 
-    sheet.pageSetup.printArea = `A1:F${currentRow - 1}`;
+    sheet.pageSetup.printArea = `A1:D${currentRow - 1}`;
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const fileName = `Supervisor_${supName}_${createDate}_Combined_Master_Duty.xlsx`;
@@ -2618,24 +2939,50 @@ async function addPharmacyToQuickList() {
         currentList.push(phInt);
         const { error } = await _supabase.from('supervisor_accounts').update({ managed_pharmacies: currentList }).eq('username', activeSession.id);
         if (!error) {
-            await _supabase.from('pharmacy_accounts').update({ supervisor_name: activeSession.id }).eq('pharmacy_id', phInt);
             activeSession.info.managed_pharmacies = currentList;
             localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
             renderSupervisorPharmacies();
             document.getElementById('newQuickPhNo').value = '';
             showToast(`Pharmacy #${phNo} added!`, "success");
+        } else {
+            showToast("Failed to add: " + error.message, "error");
         }
     } else showToast("Already in your list", "warning");
 }
 
 async function removeFromQuickList(phNo) {
-    let currentList = (activeSession.info.managed_pharmacies || []).filter(id => id !== phNo);
+    const phInt = parseInt(phNo);
+    let currentList = (activeSession.info.managed_pharmacies || []).filter(id => parseInt(id) !== phInt);
     const { error } = await _supabase.from('supervisor_accounts').update({ managed_pharmacies: currentList }).eq('username', activeSession.id);
     if (!error) {
         activeSession.info.managed_pharmacies = currentList;
         localStorage.setItem('mono_pro_cloud_v15', JSON.stringify(activeSession));
         renderSupervisorPharmacies();
-        showToast("Removed from list", "info");
+        
+        // 1. Remove from combined schedule in real time if currently active
+        if (window.isCombinedViewActive && window.currentCombinedData && Array.isArray(window.currentCombinedData.records)) {
+            window.currentCombinedData.records = window.currentCombinedData.records.filter(r => parseInt(r.pharmacy_id) !== phInt);
+            if (window.currentCombinedData.records.length > 0) {
+                renderCombinedSchedule(window.currentCombinedData);
+            } else {
+                document.getElementById('scheduleDisplay').innerHTML = `<div style="text-align:center; padding:40px; background:#f8fafc; border-radius:15px; color:#64748b;"><h3>📭 القائمة أصبحت فارغة. لا توجد صيدليات متبقية لعرضها.</h3></div>`;
+                document.getElementById('actionFooter').style.display = 'none';
+            }
+        }
+        
+        // 2. Remove from single schedule view if currently showing this pharmacy
+        const currentSearchPNo = document.getElementById('supSearchPNo');
+        if (currentSearchPNo && parseInt(currentSearchPNo.value) === phInt) {
+            document.getElementById('scheduleDisplay').innerHTML = '';
+            document.getElementById('actionFooter').style.display = 'none';
+            currentSearchPNo.value = '';
+            const searchDate = document.getElementById('supSearchDate');
+            if (searchDate) searchDate.value = '';
+        }
+        
+        showToast(`Pharmacy #${phNo} removed from list & view`, "info");
+    } else {
+        showToast("Error removing pharmacy: " + error.message, "error");
     }
 }
 
