@@ -2002,7 +2002,7 @@ async function exportAsExcel() {
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const fileName = `Pharmacy_${pNo}_${createDate}.xlsx`;
+    const fileName = `Pharmacy_${pNo}_${createDate}_Weekly_Duty_Planner.xlsx`;
     saveAs(blob, fileName);
     showToast(`✅ Excel Exported: ${fileName}`, "success");
 }
